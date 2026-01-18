@@ -38,7 +38,11 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev
+
+      - name: Set PKG_CONFIG_PATH (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: echo "PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Install frontend dependencies
         run: pnpm install
@@ -48,7 +52,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v${{ github.run_number }} # Auto-tag with run number for push builds
+          tagName: v${{ github.run_number }}
           releaseName: 'Build v${{ github.run_number }}'
           releaseBody: 'Automated release triggered by push.'
           releaseDraft: false
