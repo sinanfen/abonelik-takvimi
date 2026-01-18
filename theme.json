@@ -1,0 +1,214 @@
+{
+    "branding": {
+        "name": "Abonelik Takvimi",
+        "theme": "dark",
+        "tone": "minimal-corporate",
+        "radius": 12,
+        "shadow": "soft",
+        "borderStyle": "subtle"
+    },
+    "fonts": {
+        "primary": {
+            "family": "Inter",
+            "fallback": [
+                "ui-sans-serif",
+                "system-ui",
+                "-apple-system",
+                "Segoe UI",
+                "Roboto",
+                "Arial",
+                "sans-serif"
+            ],
+            "weights": [
+                300,
+                400,
+                500,
+                600,
+                700
+            ]
+        },
+        "mono": {
+            "family": "JetBrains Mono",
+            "fallback": [
+                "ui-monospace",
+                "SFMono-Regular",
+                "Menlo",
+                "Monaco",
+                "Consolas",
+                "Liberation Mono",
+                "monospace"
+            ],
+            "weights": [
+                400,
+                500,
+                600
+            ]
+        }
+    },
+    "typography": {
+        "scalePx": {
+            "xs": 12,
+            "sm": 14,
+            "base": 16,
+            "lg": 18,
+            "xl": 20,
+            "2xl": 24,
+            "3xl": 30
+        },
+        "lineHeights": {
+            "xs": 16,
+            "sm": 20,
+            "base": 24,
+            "lg": 28,
+            "xl": 28,
+            "2xl": 32,
+            "3xl": 36
+        },
+        "letterSpacing": {
+            "tight": -0.2,
+            "normal": 0,
+            "wide": 0.2
+        }
+    },
+    "spacing": {
+        "baseUnitPx": 4,
+        "tokensPx": {
+            "0": 0,
+            "1": 4,
+            "2": 8,
+            "3": 12,
+            "4": 16,
+            "5": 20,
+            "6": 24,
+            "8": 32,
+            "10": 40,
+            "12": 48,
+            "16": 64
+        }
+    },
+    "palette": {
+        "neutral": {
+            "bg": "#0B0F14",
+            "surface": "#0F1621",
+            "surface2": "#111B28",
+            "surface3": "#152235",
+            "border": "#1F2A3A",
+            "mutedText": "#9AA4B2",
+            "text": "#E6EDF6",
+            "text2": "#C7D0DD"
+        },
+        "accent": {
+            "primary": "#3B82F6",
+            "primaryHover": "#2563EB",
+            "primaryActive": "#1D4ED8",
+            "primarySoft": "#0B2447",
+            "primaryBorder": "#1E3A8A"
+        },
+        "danger": {
+            "base": "#EF4444",
+            "soft": "#2A1212",
+            "border": "#7F1D1D"
+        },
+        "warning": {
+            "base": "#F59E0B",
+            "soft": "#2A1D0A",
+            "border": "#92400E"
+        },
+        "success": {
+            "base": "#22C55E",
+            "soft": "#0E2416",
+            "border": "#166534"
+        },
+        "info": {
+            "base": "#06B6D4",
+            "soft": "#052025",
+            "border": "#0E7490"
+        },
+        "categoryColors": {
+            "Banking": "#60A5FA",
+            "Entertainment": "#A78BFA",
+            "Bills": "#FBBF24",
+            "SaaS": "#34D399",
+            "Insurance": "#FB7185",
+            "Shopping": "#F97316",
+            "Other": "#94A3B8"
+        }
+    },
+    "shadcnLikeCssVariables": {
+        "dark": {
+            "--background": "11 15 20",
+            "--foreground": "230 237 246",
+            "--card": "15 22 33",
+            "--card-foreground": "230 237 246",
+            "--popover": "15 22 33",
+            "--popover-foreground": "230 237 246",
+            "--primary": "59 130 246",
+            "--primary-foreground": "11 15 20",
+            "--secondary": "17 27 40",
+            "--secondary-foreground": "230 237 246",
+            "--muted": "17 27 40",
+            "--muted-foreground": "154 164 178",
+            "--accent": "17 27 40",
+            "--accent-foreground": "230 237 246",
+            "--destructive": "239 68 68",
+            "--destructive-foreground": "230 237 246",
+            "--border": "31 42 58",
+            "--input": "31 42 58",
+            "--ring": "59 130 246",
+            "--radius": "12px"
+        }
+    },
+    "calendarUiDefaults": {
+        "defaultRangeDays": 30,
+        "weekStartsOn": "monday",
+        "timezone": "Europe/Istanbul",
+        "dateFormat": "dd MMM yyyy",
+        "timeFormat": "HH:mm",
+        "maxBadgesPerDayCell": 3,
+        "todayOutline": true,
+        "selectedDayFill": true
+    },
+    "components": {
+        "button": {
+            "heightPx": 40,
+            "radiusPx": 10,
+            "fontWeight": 600
+        },
+        "input": {
+            "heightPx": 40,
+            "radiusPx": 10
+        },
+        "card": {
+            "radiusPx": 12,
+            "paddingPx": 16,
+            "border": "1px solid #1F2A3A"
+        },
+        "badge": {
+            "radiusPx": 999,
+            "paddingX": 10,
+            "paddingY": 4,
+            "fontSizePx": 12
+        }
+    },
+    "accessibility": {
+        "minContrast": "AA",
+        "focusRing": {
+            "enabled": true,
+            "widthPx": 2,
+            "offsetPx": 2
+        },
+        "reducedMotionSupport": true
+    },
+    "importExportDefaults": {
+        "export": {
+            "defaultFormat": "json",
+            "includeSettings": true,
+            "includeInactive": false,
+            "schemaVersion": "1.0.0"
+        },
+        "import": {
+            "conflictPolicyDefault": "update_if_same_name_and_type",
+            "timezoneAssumeIfMissing": "Europe/Istanbul"
+        }
+    }
+}

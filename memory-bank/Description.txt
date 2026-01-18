@@ -1,0 +1,403 @@
+1) Ürün Tanımı (MVP)
+
+Amaç: Abonelik/ödeme/hizmet tarihlerinin 30 günlük takvimde gün gün görünmesi + kayıt ekleme/düzenleme + yönetim paneli + içe/dışa aktar.
+
+Örnek kayıtlar:
+
+Netflix: aylık ödeme günü
+
+Kredi kartı: hesap kesim tarihi + son ödeme günü
+
+İnternet/telefon: fatura/otomatik ödeme günü
+
+2) Ana Akışlar
+
+Kullanıcı abonelik oluşturur (adı, kategori, tekrar kuralı, tutar opsiyonel, hatırlatma).
+
+Uygulama bu kurala göre gelecek 30 gün için takvimde event’ler üretir (ve ileri tarihleri de hesaplar).
+
+Takvimde gün tıklanınca “O günün kayıtları” açılır; hızlı ekle/düzenle.
+
+Yönetim panelinde tüm abonelikler listelenir (filtrele, ara, düzenle, pasifleştir).
+
+Export/Import ile veriler taşınır (JSON/CSV/ICS opsiyon).
+
+3) Ekranlar ve UI (shadcn dark theme hissi)
+A) Ana Sayfa: 30 Günlük Takvim
+
+Üst bar:
+
+Sol: Ay/Aralık başlığı (örn: “17 Oca – 15 Şub”)
+
+Orta: Arama (abonelik adı / kurum)
+
+Sağ: “+ Yeni Abonelik”, Import/Export menüsü, Ayarlar (⚙)
+
+Takvim görünümü (default):
+
+30 günlük grid (6 satır x 5 sütun gibi veya 7 sütunlu haftalık çizgili 5 hafta)
+
+Gün hücresinde:
+
+Gün numarası
+
+O günkü event “badge”leri (max 3 göster, fazlaysa “+2”)
+
+Renkler kategoriye göre (Bankacılık, Eğlence, Fatura, SaaS…)
+
+Sol panel (opsiyonel ama güçlü):
+
+Filtreler: kategori, hesap/ödeme yöntemi, “sadece yaklaşan 7 gün”, “tutar aralığı”
+
+Toggle: “Sadece ödemeler” / “Hepsi”
+
+Gün tıklayınca sağdan Drawer:
+
+O günün event listesi
+
+“Hızlı ekle” (sadece ad + tür + tarih, detay sonra)
+
+B) Abonelik Detay / Edit Modal (CRUD)
+
+Form alanları (minimum + gelişmiş):
+
+Ad (Netflix / Ziraat Kart)
+
+Tür: Abonelik / Kredi Kartı / Fatura / Diğer
+
+Kategori (tag)
+
+Tekrar Kuralı
+
+Aylık / Haftalık / Yıllık / Özel
+
+“Ayın günü: 5” gibi
+
+Kredi kartı için: “Hesap kesim günü” + “Son ödeme günü (kesimden X gün sonra veya sabit gün)”
+
+Tutar (opsiyonel), Para birimi
+
+Ödeme yöntemi (kart/hesap) opsiyonel
+
+Hatırlatmalar: 7 gün önce / 3 gün önce / 1 gün önce / aynı gün (çoklu)
+
+Durum: Aktif / Pasif
+
+Not alanı
+
+C) Yönetim Paneli (liste + yönetim)
+
+Tablo: Ad, Tür, Kategori, Sonraki tarih, Hatırlatma, Durum, Güncelleme
+
+Aksiyonlar: Düzenle / Pasifleştir / Kopyala / Sil
+
+Üstte: filtre + arama + “Toplu export”
+
+D) Import/Export Ekranı
+
+Export formatları:
+
+JSON (tam yedek): tüm alanlar + ayarlar
+
+CSV: sade liste
+
+ICS (opsiyonel): takvim entegrasyonu (Google Calendar import gibi)
+
+Import:
+
+Dosya seç → önizleme → çakışma çözümü:
+
+“Aynı isim + aynı tür varsa güncelle”
+
+“Yeni kopya oluştur”
+
+“Atla”
+
+E) Ayarlar
+
+Varsayılan görünüm: 30 gün / 7 gün / ay
+
+Haftanın başlangıcı (Pazartesi/Pazar)
+
+Bildirim izinleri ve saat aralığı
+
+Tema: Dark (default) + accent rengi
+
+Para birimi ve tarih formatı
+
+4) Veri Modeli (mantıksal)
+
+Subscription (Abonelik)
+
+id
+
+name
+
+type (subscription/credit_card/bill/other)
+
+category
+
+recurrence_rule (aşağıdaki model)
+
+amount, currency (opsiyonel)
+
+payment_method (string veya ayrı tablo)
+
+reminders[] (offset gün cinsinden)
+
+is_active
+
+notes
+
+created_at, updated_at
+
+RecurrenceRule (Tekrar kuralı)
+
+frequency: monthly/weekly/yearly/custom
+
+monthly_day: 1-31 (örn Netflix 5)
+
+weekly_days: [Mon, Wed] gibi (opsiyon)
+
+timezone (Europe/Istanbul)
+
+start_date
+
+end_date (opsiyon)
+
+credit_card_mode (opsiyon):
+
+statement_day (hesap kesim)
+
+due_mode: fixed_day / offset_days
+
+due_day veya due_offset_days
+
+EventInstance (Takvimde görünen kayıt)
+
+id
+
+subscription_id
+
+date (gün)
+
+kind: payment / statement / due / reminder
+
+title (UI için: “Ziraat - Hesap Kesim”)
+
+status: planned / done / skipped (ileri seviye)
+
+generated_from_rule_version (rule değişince yeniden üretim için)
+
+Mantık: Takvim ekranı her açıldığında “bugün → +30 gün” aralığı için event’ler hesaplanır. Event’leri DB’ye yazmak şart değil; ama “done/skipped” gibi durum istiyorsan instance’ları persist etmek mantıklı.
+
+5) İş Kuralları (kritik detaylar)
+
+Ayın 31’i gibi günlerde taşma:
+
+Kural seçeneği: “Ay yoksa son gün” (31 → 30/28/29)
+
+Kredi kartı:
+
+Kesim günü sabit (örn 15)
+
+Son ödeme: “kesimden 10 gün sonra” veya “ayın 25’i”
+
+Eğer “kesim + offset” bir sonraki aya taşarsa doğru hesaplanacak
+
+Pasif abonelikler takvimde görünmez (istersen “pasifleri göster” filtresi)
+
+Import’ta timezone ve tarih formatı normalize edilir
+
+6) Teknoloji / Mimari (Tauri için net plan)
+
+Tauri (Rust backend) + React UI
+
+UI: shadcn/ui + Tailwind (dark theme default)
+
+State: basit başlangıç için Zustand veya TanStack Query (veri yükleme)
+
+Storage seçenekleri:
+
+SQLite (öneri): lokal, güvenilir, migrate edilebilir
+
+JSON file (çok basit ama büyüdükçe riskli)
+
+Export/Import:
+
+JSON: direkt DB dump değil; “domain export” (versiyonlu schema)
+
+CSV: abonelik listesi
+
+ICS: event export (opsiyonel)
+
+7) Milestone Planı (net teslimatlar)
+Milestone 1 — UI Prototip (tıklanabilir)
+
+Takvim 30 gün grid
+
+Gün drawer + dummy data
+
+“Yeni abonelik” modal tasarımı
+
+Yönetim paneli taslağı
+
+Milestone 2 — Veri Katmanı (lokal)
+
+Subscription CRUD
+
+Basit recurrence: aylık + haftalık
+
+Takvim ekranında gerçek data
+
+Milestone 3 — Kural Motoru (tam)
+
+Kredi kartı (kesim + son ödeme)
+
+Taşma kuralları (31, Şubat)
+
+Çoklu hatırlatma
+
+Filtreler + arama
+
+Milestone 4 — Import/Export
+
+JSON export/import (versiyonlu)
+
+CSV export/import
+
+Çakışma çözümü ekranı
+
+Milestone 5 — Kalite ve Ürünleştirme
+
+Klavye kısayolları (N: yeni abonelik, /: search)
+
+Boş durumlar, hata yakalama
+
+Backup önerisi (otomatik export)
+
+Release (Windows/macOS/Linux build)
+
+8) UI Stil Rehberi (shadcn dark benzeri)
+
+Arka plan: near-black, kartlar 1 kademe açık
+
+Kart: border + subtle shadow, radius 10-12
+
+Badge’ler: solid değil; “muted” + accent border
+
+Tipografi: Inter/SF, başlıklar net, metin düşük kontrast
+
+Takvim hücresi:
+
+hover’da hafif highlight
+
+bugün: ince accent outline
+
+seçili gün: filled highlight
+
+9) Sonuç: MVP’de “mutlaka” olmalı
+
+30 günlük takvim + gün drawer
+
+Abonelik CRUD + yönetim paneli
+
+Aylık tekrar + kredi kartı kesim/son ödeme
+
+JSON import/export
+---
+MSI & RELEASE – SON ÖZET
+1) Dağıtım Kararı (KESİN)
+
+Platform: Windows 10 / Windows 11
+
+Dağıtım formatı: MSI (Microsoft Installer)
+
+Kurulum tipi: Standart kurulum (Next → Finish)
+
+Portable sürüm: ❌ Yok (ileride opsiyonel olabilir)
+
+Gerekçe:
+
+Profesyonel masaüstü uygulama
+
+Temiz uninstall
+
+Update ve bakım kolaylığı
+
+Kurumsal güven
+
+2) Tauri & MSI İlişkisi
+
+Tauri, Windows için doğrudan MSI üretir
+
+Ek installer yazmana gerek yok
+
+WebView2 gibi bağımlılıkları kontrol edebilir
+
+Repo yapısı:
+
+src/ → React + shadcn (frontend)
+
+src-tauri/ → Native katman + build + MSI config
+
+3) SQLite Durumu (NET)
+
+SQLite ayrı kurulmaz
+
+Kullanıcı hiçbir şey yüklemez
+
+DB uygulamanın içinde gömülüdür
+
+Veri dosyası:
+
+Kullanıcının AppData klasöründe tutulur
+
+Avantaj:
+
+Cross-platform
+
+Hızlı
+
+Offline-first
+
+Backup/export çok kolay
+
+4) Release İçeriği (v1.0)
+Kurulumla birlikte gelenler
+
+Uygulama binary
+
+WebView2 kontrolü (yoksa kurulum)
+
+SQLite engine (embedded)
+
+Varsayılan boş DB
+
+Kullanıcı deneyimi
+
+Kur → Aç → Kullan
+
+Ek kurulum, servis, DB yok
+
+5) Güncelleme Stratejisi (v1.0)
+
+Otomatik update: ❌ Kapalı (ilk sürüm)
+
+Manuel update: ✅ Yeni MSI indir → üstüne kur
+
+MSI, aynı uygulamanın üstüne güvenli şekilde kurulabilir.
+
+6) Güvenlik & İtibar
+
+Code signing:
+
+İlk sürümde opsiyonel
+
+Yaygın dağıtımda şiddetle önerilir
+
+Signed MSI:
+
+SmartScreen uyarıları azalır
+
+“Profesyonel yazılım” algısı oluşur

@@ -1,0 +1,176 @@
+{
+    "app": {
+        "name": "abonelik-takvimi",
+        "productName": "Abonelik Takvimi",
+        "description": "Tauri desktop app: 30-day subscription calendar with admin panel and import/export",
+        "version": "0.1.0",
+        "license": "MIT",
+        "private": true
+    },
+    "runtime": {
+        "tauri": {
+            "version": "2.x",
+            "rust": "stable",
+            "targets": [
+                "windows",
+                "macos",
+                "linux"
+            ],
+            "storage": {
+                "primary": "sqlite",
+                "alternatives": [
+                    "json_file"
+                ]
+            }
+        },
+        "ui": {
+            "framework": "react",
+            "language": "typescript",
+            "bundler": "vite",
+            "node": ">=20"
+        }
+    },
+    "packageJsonLike": {
+        "scripts": {
+            "dev": "vite",
+            "build": "tsc -b && vite build",
+            "preview": "vite preview",
+            "lint": "eslint .",
+            "format": "prettier . --write",
+            "typecheck": "tsc --noEmit",
+            "tauri:dev": "tauri dev",
+            "tauri:build": "tauri build",
+            "db:migrate": "drizzle-kit migrate",
+            "db:push": "drizzle-kit push"
+        },
+        "dependencies": {
+            "@tauri-apps/api": "^2.0.0",
+            "@tauri-apps/plugin-dialog": "^2.0.0",
+            "@tauri-apps/plugin-fs": "^2.0.0",
+            "@tauri-apps/plugin-notification": "^2.0.0",
+            "@tauri-apps/plugin-os": "^2.0.0",
+            "@tauri-apps/plugin-process": "^2.0.0",
+            "@tauri-apps/plugin-shell": "^2.0.0",
+            "@tauri-apps/plugin-store": "^2.0.0",
+            "@tauri-apps/plugin-updater": "^2.0.0",
+            "@tauri-apps/plugin-window-state": "^2.0.0",
+            "react": "^18.3.0",
+            "react-dom": "^18.3.0",
+            "react-router-dom": "^6.26.0",
+            "date-fns": "^3.6.0",
+            "date-fns-tz": "^3.1.3",
+            "zod": "^3.23.8",
+            "@tanstack/react-query": "^5.56.2",
+            "@tanstack/react-query-devtools": "^5.56.2",
+            "zustand": "^4.5.5",
+            "react-hook-form": "^7.53.0",
+            "@hookform/resolvers": "^3.9.0",
+            "lucide-react": "^0.441.0",
+            "clsx": "^2.1.1",
+            "tailwind-merge": "^2.5.2",
+            "class-variance-authority": "^0.7.0",
+            "papaparse": "^5.4.1",
+            "ical.js": "^1.5.0",
+            "nanoid": "^5.0.7"
+        },
+        "devDependencies": {
+            "@tauri-apps/cli": "^2.0.0",
+            "typescript": "^5.6.2",
+            "vite": "^5.4.6",
+            "@vitejs/plugin-react": "^4.3.2",
+            "tailwindcss": "^3.4.10",
+            "postcss": "^8.4.47",
+            "autoprefixer": "^10.4.20",
+            "tailwindcss-animate": "^1.0.7",
+            "eslint": "^9.10.0",
+            "@eslint/js": "^9.10.0",
+            "typescript-eslint": "^8.7.0",
+            "eslint-plugin-react": "^7.36.1",
+            "eslint-plugin-react-hooks": "^5.1.0",
+            "eslint-plugin-import": "^2.30.0",
+            "eslint-config-prettier": "^9.1.0",
+            "prettier": "^3.3.3",
+            "drizzle-orm": "^0.33.0",
+            "drizzle-kit": "^0.24.2",
+            "@libsql/client": "^0.14.0"
+        }
+    },
+    "uiStack": {
+        "designSystem": {
+            "library": "shadcn-ui",
+            "primitives": "radix-ui",
+            "styling": "tailwindcss",
+            "icons": "lucide"
+        },
+        "recommendedRadixPackages": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-popover",
+            "@radix-ui/react-select",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-toast",
+            "@radix-ui/react-tooltip",
+            "@radix-ui/react-scroll-area",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-checkbox",
+            "@radix-ui/react-label",
+            "@radix-ui/react-separator",
+            "@radix-ui/react-slot"
+        ]
+    },
+    "dataLayer": {
+        "db": {
+            "engine": "sqlite",
+            "orm": "drizzle",
+            "notes": [
+                "Use SQLite for reliability, migrations, and future-proofing.",
+                "Keep a versioned export schema for JSON import/export."
+            ]
+        },
+        "importExport": {
+            "formats": [
+                "json",
+                "csv",
+                "ics_optional"
+            ],
+            "csvLib": "papaparse",
+            "icsLib": "ical.js"
+        },
+        "validation": {
+            "schema": "zod",
+            "forms": "react-hook-form"
+        }
+    },
+    "desktopCapabilities": {
+        "notifications": true,
+        "fileDialog": true,
+        "filesystemReadWrite": true,
+        "autoUpdateOptional": true,
+        "windowStatePersist": true
+    },
+    "recommendedProjectStructure": {
+        "root": [
+            "src-tauri/",
+            "src/",
+            "public/",
+            "drizzle/",
+            "scripts/"
+        ],
+        "src": [
+            "app/",
+            "features/",
+            "components/",
+            "lib/",
+            "stores/",
+            "db/",
+            "types/"
+        ],
+        "features": [
+            "calendar/",
+            "subscriptions/",
+            "admin/",
+            "import-export/",
+            "settings/"
+        ]
+    }
+}
