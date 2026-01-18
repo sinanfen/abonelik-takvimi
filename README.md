@@ -1,73 +1,66 @@
-# React + TypeScript + Vite
+# 📅 Abonelik Takvimi (Subscription Calendar)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Modern, performant ve kullanıcı dostu bir masaüstü abonelik takip uygulaması. Yaklaşan ödemelerinizi takip edin, harcamalarınızı analiz edin ve bildirimlerle gününde haberdar olun.
 
-Currently, two official plugins are available:
+![App Icon](app-icon.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Özellikler
 
-## React Compiler
+- **Abonelik Yönetimi**: Netflix, Spotify, AWS gibi aboneliklerinizi ekleyin, düzenleyin ve kategorize edin.
+- **Akıllı Takvim Görünümü**: Aylık ödemelerinizi takvim üzerinde görselleştirin.
+- **Masaüstü Bildirimleri**: Ödeme günü yaklaşan abonelikler için Windows masaüstü bildirimi alın.
+- **Karanlık & Aydınlık Mod**: Sistem temanıza uyumlu veya manuel olarak değiştirilebilir modern arayüz.
+- **Detaylı Analiz**: Aylık toplam harcamanızı ve yaklaşan ödemelerinizi anlık görün.
+- **Güvenli & Yerel**: Tüm verileriniz yerel cihazınızda (SQLite) şifreli olarak saklanır. Buluta veri göndermez.
+- **Yedekleme**: Verilerinizi JSON formatında dışa aktarın ve geri yükleyin.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Teknolojiler
 
-## Expanding the ESLint configuration
+Bu proje, modern web teknolojilerini native performans ile birleştirir:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Core**: [Tauri v2](https://tauri.app) (Rust + Webview)
+- **Frontend**: [React](https://react.dev), [TypeScript](https://www.typescriptlang.org)
+- **UI Framework**: [TailwindCSS](https://tailwindcss.com), [Shadcn/UI](https://ui.shadcn.com)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Database**: SQLite (via `tauri-plugin-sql`)
+- **Build Tool**: [Vite](https://vitejs.dev), [pnpm](https://pnpm.io)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 📦 Kurulum (Release)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+En güncel sürümü **Releases** sayfasından indirebilirsiniz.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Windows**: `.msi` veya `.exe` dosyasını indirip kurun.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 💻 Geliştirme (Development)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Projeyi yerel ortamınızda çalıştırmak için:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. **Gereksinimler**:
+   - Node.js (v20+)
+   - Rust (latest stable)
+   - pnpm
+
+2. **Bağımlılıkları Yükle**:
+
+   ```bash
+   pnpm install
+   ```
+
+3. **Geliştirme Sunucusu**:
+
+   ```bash
+   pnpm tauri dev
+   ```
+
+4. **Build (Production)**:
+   ```bash
+   pnpm tauri build
+   ```
+
+## 🤝 Katkıda Bulunma (Contributing)
+
+Pull request'ler memnuniyetle karşılanır. Büyük değişiklikler için önce bir issue açarak tartışmanızı öneririz.
+
+## 📄 Lisans
+
+MIT License ile lisanslanmıştır.
