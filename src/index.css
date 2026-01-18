@@ -1,0 +1,165 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Mode (Default) */
+    --background: 255 255 255;
+    --foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 42;
+    --primary: 59 130 246;
+    --primary-foreground: 255 255 255;
+    --secondary: 241 245 249;
+    --secondary-foreground: 15 23 42;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --accent: 241 245 249;
+    --accent-foreground: 15 23 42;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --border: 226 232 240;
+    --input: 226 232 240;
+    --ring: 59 130 246;
+    --radius: 12px;
+  }
+
+  .dark {
+    /* Dark Mode (Mevcut) */
+    --background: 11 15 20;
+    --foreground: 230 237 246;
+    --card: 15 22 33;
+    --card-foreground: 230 237 246;
+    --popover: 15 22 33;
+    --popover-foreground: 230 237 246;
+    --primary: 59 130 246;
+    --primary-foreground: 11 15 20;
+    --secondary: 17 27 40;
+    --secondary-foreground: 230 237 246;
+    --muted: 17 27 40;
+    --muted-foreground: 154 164 178;
+    --accent: 17 27 40;
+    --accent-foreground: 230 237 246;
+    --destructive: 239 68 68;
+    --destructive-foreground: 230 237 246;
+    --border: 31 42 58;
+    --input: 31 42 58;
+    --ring: 59 130 246;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Tauri window controls - fix scrollbar */
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #root {
+    overflow: auto;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgb(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer components {
+  /* Focus ring utility */
+  .focus-ring {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Card component base */
+  .card {
+    @apply rounded-lg border border-border bg-card p-4 shadow-sm;
+  }
+
+  /* Badge component base */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  /* Category badge colors */
+  .badge-banking {
+    @apply bg-category-banking/20 text-category-banking border border-category-banking/30;
+  }
+  .badge-entertainment {
+    @apply bg-category-entertainment/20 text-category-entertainment border border-category-entertainment/30;
+  }
+  .badge-bills {
+    @apply bg-category-bills/20 text-category-bills border border-category-bills/30;
+  }
+  .badge-saas {
+    @apply bg-category-saas/20 text-category-saas border border-category-saas/30;
+  }
+  .badge-insurance {
+    @apply bg-category-insurance/20 text-category-insurance border border-category-insurance/30;
+  }
+  .badge-shopping {
+    @apply bg-category-shopping/20 text-category-shopping border border-category-shopping/30;
+  }
+  .badge-other {
+    @apply bg-category-other/20 text-category-other border border-category-other/30;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-in {
+    animation-duration: 0.2s;
+    animation-timing-function: ease-out;
+    animation-fill-mode: forwards;
+  }
+
+  .animate-out {
+    animation-duration: 0.2s;
+    animation-timing-function: ease-in;
+    animation-fill-mode: forwards;
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-sm;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent;
+  }
+}
