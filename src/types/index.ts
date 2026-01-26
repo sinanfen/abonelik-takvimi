@@ -37,6 +37,7 @@ export interface Subscription {
     endDate?: Date;
     createdAt: Date;
     updatedAt: Date;
+    sortOrder?: number;
 }
 
 export interface SubscriptionEvent {
@@ -48,6 +49,7 @@ export interface SubscriptionEvent {
     category: Category;
     amount?: number;
     status?: 'planned' | 'done' | 'skipped';
+    sortOrder?: number;
 }
 
 export interface DayData {

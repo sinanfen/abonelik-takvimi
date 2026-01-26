@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { X, Plus, CreditCard, Receipt, Bell, Banknote } from 'lucide-react';
+import { X, Plus, CreditCard, Receipt, Bell, Banknote, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { DayData, SubscriptionEvent } from '@/types';
+import { useMoveSubscription } from '@/features/subscriptions';
 
 const KIND_ICONS: Record<string, React.ReactNode> = {
     payment: <Banknote className="h-4 w-4" />,
@@ -37,9 +39,39 @@ interface DayDrawerProps {
 }
 
 export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDrawerProps) {
+    const moveSubscription = useMoveSubscription();
+
+
+    const sortedEvents = useMemo(() => {
+        if (!dayData?.events) return [];
+        return [...dayData.events].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    }, [dayData?.events]);
+
+    const handleMove = async (event: SubscriptionEvent, direction: 'up' | 'down') => {
+        // Find index in VISIBLE list
+        const currentIndex = sortedEvents.findIndex(e => e.id === event.id);
+        if (currentIndex === -1) return;
+
+        // Determine target in VISIBLE list
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (targetIndex < 0 || targetIndex >= sortedEvents.length) return;
+
+        const targetEvent = sortedEvents[targetIndex];
+
+        try {
+            await moveSubscription.mutateAsync({
+                id: event.subscriptionId,
+                targetId: targetEvent.subscriptionId,
+                position: direction === 'up' ? 'before' : 'after'
+            });
+        } catch (error) {
+            console.error("Failed to move", error);
+        }
+    };
+
     if (!isOpen || !dayData) return null;
 
-    const { date, events } = dayData;
+    const { date } = dayData;
 
     return (
         <>
@@ -68,7 +100,7 @@ export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDr
 
                 {/* Content */}
                 <div className="flex-1 overflow-auto p-4">
-                    {events.length === 0 ? (
+                    {sortedEvents.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
                             <div className="rounded-full bg-secondary p-4">
                                 <Receipt className="h-8 w-8 text-muted-foreground" />
@@ -83,15 +115,21 @@ export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDr
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {events.map((event) => (
-                                <EventCard key={event.id} event={event} />
+                            {sortedEvents.map((event, index) => (
+                                <EventCard
+                                    key={event.id}
+                                    event={event}
+                                    onMoveUp={index > 0 ? () => handleMove(event, 'up') : undefined}
+                                    onMoveDown={index < sortedEvents.length - 1 ? () => handleMove(event, 'down') : undefined}
+                                    isUpdating={moveSubscription.isPending}
+                                />
                             ))}
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                {events.length > 0 && (
+                {sortedEvents.length > 0 && (
                     <div className="border-t border-border p-4">
                         <Button className="w-full" onClick={onNewSubscription}>
                             <Plus className="h-4 w-4" />
@@ -104,10 +142,40 @@ export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDr
     );
 }
 
-function EventCard({ event }: { event: SubscriptionEvent }) {
+interface EventCardProps {
+    event: SubscriptionEvent;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
+    isUpdating?: boolean;
+}
+
+function EventCard({ event, onMoveUp, onMoveDown, isUpdating }: EventCardProps) {
     return (
-        <div className="rounded-xl border border-border bg-card p-4 transition-colors hover:bg-card/80">
-            <div className="flex items-start justify-between">
+        <div className="group relative rounded-xl border border-border bg-card p-4 transition-colors hover:bg-card/80">
+            {/* Reorder Buttons (Visible on Hover or always visible?) */}
+            {/* To make it clean, let's put them on the right side or valid position */}
+            <div className="absolute -left-3 top-1/2 flex -translate-y-1/2 flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-6 w-6 rounded-full"
+                    onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
+                    disabled={!onMoveUp || isUpdating}
+                >
+                    <ChevronUp className="h-3 w-3" />
+                </Button>
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-6 w-6 rounded-full"
+                    onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
+                    disabled={!onMoveDown || isUpdating}
+                >
+                    <ChevronDown className="h-3 w-3" />
+                </Button>
+            </div>
+
+            <div className="flex items-start justify-between pl-2">
                 <div className="flex items-center gap-3">
                     <div
                         className={cn(

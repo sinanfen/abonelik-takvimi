@@ -105,3 +105,15 @@ export function useSearchSubscriptions(query: string) {
         enabled: query.length >= 2,
     });
 }
+
+export function useMoveSubscription() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, targetId, position }: { id: string; targetId: string; position: 'before' | 'after' }) =>
+            subscriptionRepository.move(id, targetId, position),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+        },
+    });
+}

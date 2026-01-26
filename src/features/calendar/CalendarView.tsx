@@ -6,7 +6,6 @@ import {
     startOfToday,
     format,
     isSameDay,
-    isToday,
     isBefore,
     getDate,
 } from 'date-fns';
@@ -27,7 +26,7 @@ import { DayCell } from './DayCell';
 import { DayDrawer } from './DayDrawer';
 import { FilterSidebar, defaultFilters, type FilterState } from './FilterSidebar';
 import { useActiveSubscriptions } from '@/features/subscriptions';
-import type { DayData, SubscriptionEvent, Subscription } from '@/types';
+import type { SubscriptionEvent, Subscription } from '@/types';
 
 // Generate events from subscriptions for a date range
 function generateEventsForDateRange(
@@ -54,6 +53,7 @@ function generateEventsForDateRange(
                             kind: 'statement',
                             title: `${sub.name} - Hesap Kesim`,
                             category: sub.category,
+                            sortOrder: sub.sortOrder,
                         });
                     }
                 }
@@ -69,6 +69,7 @@ function generateEventsForDateRange(
                             kind: 'due',
                             title: `${sub.name} - Son Ödeme`,
                             category: sub.category,
+                            sortOrder: sub.sortOrder,
                         });
                     }
                 }
@@ -96,13 +97,14 @@ function generateEventsForDateRange(
                         title: sub.name,
                         category: sub.category,
                         amount: sub.amount,
+                        sortOrder: sub.sortOrder,
                     });
                 }
             }
         }
     }
 
-    return events;
+    return events.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 
 interface CalendarViewProps {
@@ -111,7 +113,8 @@ interface CalendarViewProps {
 }
 
 export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarViewProps) {
-    const [startDate, setStartDate] = useState(() => startOfToday());
+    // Calendar State
+    const [currentMonth, setCurrentMonth] = useState(() => startOfToday());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState<FilterState>(defaultFilters);
@@ -151,19 +154,50 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
     // Get subscriptions from database
     const { data: subscriptions = [], isLoading } = useActiveSubscriptions();
 
+    // Calculate calendar grid for the current month
+    const { calendarDays, startDate, endDate } = useMemo(() => {
+        const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+        // Start from Monday
+        const start = new Date(monthStart);
+        const dayOfWeek = start.getDay(); // 0 is Sunday, 1 is Monday...
+        const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Calculate days to subtract to reach Monday
+        start.setDate(start.getDate() - diff);
+
+        // Calculate end date (completed weeks)
+        const end = new Date(monthEnd);
+        // Ensure we show at least 6 weeks or enough to complete the last week
+        // 6 weeks * 7 days = 42 days
+        const totalDays = 42;
+        const currentDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+        if (currentDays < totalDays) {
+            end.setDate(end.getDate() + (totalDays - currentDays));
+        }
+
+        const days: Date[] = [];
+        let d = new Date(start);
+        while (d <= end) {
+            days.push(new Date(d));
+            d.setDate(d.getDate() + 1);
+        }
+
+        return { calendarDays: days, startDate: start, endDate: end };
+    }, [currentMonth]);
+
     // Generate events from subscriptions
     const allEvents = useMemo(() => {
-        return generateEventsForDateRange(subscriptions, startDate, 30);
-    }, [subscriptions, startDate]);
+        // Calculate total days between start and end
+        if (!startDate || !endDate) return [];
+        const daysCount = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        return generateEventsForDateRange(subscriptions, startDate, daysCount);
+    }, [subscriptions, startDate, endDate]);
 
-    // Calculate days with filtered events
-    const days = useMemo(() => {
+    // Map days to DayData with filtered events
+    const daysData = useMemo(() => {
         const today = startOfToday();
-        const result: DayData[] = [];
-
-        for (let i = 0; i < 30; i++) {
-            const date = addDays(startDate, i);
-
+        return calendarDays.map((date) => {
             // Get events for this day
             let events = allEvents.filter((e) => isSameDay(e.date, date));
 
@@ -172,7 +206,7 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                 events = events.filter((e) => filters.categories.includes(e.category));
             }
 
-            // Apply upcoming days filter
+            // Apply upcoming days filter (optional, arguably less useful in month view, but keeping logic)
             if (filters.upcomingDays !== null) {
                 const cutoffDate = addDays(today, filters.upcomingDays);
                 if (isBefore(cutoffDate, date)) {
@@ -192,28 +226,32 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                 );
             }
 
-            result.push({ date, events });
-        }
-        return result;
-    }, [startDate, allEvents, filters, searchQuery]);
+            // Sort events by global sort order (if available on event's subscription, which we don't have direct access to here easily without lookup, 
+            // but generateEventsForDateRange could be updated or we rely on repo sort)
+            // Ideally events should carry sortOrder. For now, rely on default insertion order which comes from repo sorted query.
 
-    const endDate = addDays(startDate, 29);
+            return { date, events };
+        });
+    }, [calendarDays, allEvents, filters, searchQuery]);
+
 
     const handlePrevious = () => {
-        setStartDate((prev) => addDays(prev, -7));
+        setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
     };
 
     const handleNext = () => {
-        setStartDate((prev) => addDays(prev, 7));
+        setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
     };
 
     const handleToday = () => {
-        setStartDate(startOfToday());
+        setCurrentMonth(startOfToday());
     };
 
     const selectedDayData = selectedDate
-        ? days.find((d) => isSameDay(d.date, selectedDate))
+        ? daysData.find((d) => isSameDay(d.date, selectedDate))
         : null;
+
+    const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
     return (
         <div className="flex h-full flex-1">
@@ -238,11 +276,10 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                             </Button>
                         </div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-lg font-semibold text-foreground">
-                                {format(startDate, 'd MMM', { locale: tr })} –{' '}
-                                {format(endDate, 'd MMM yyyy', { locale: tr })}
+                            <h1 className="text-lg font-semibold text-foreground capitalize">
+                                {format(currentMonth, 'MMMM yyyy', { locale: tr })}
                             </h1>
-                            {!isToday(startDate) && (
+                            {!isSameDay(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1), new Date(new Date().getFullYear(), new Date().getMonth(), 1)) && (
                                 <Button variant="outline" size="sm" onClick={handleToday}>
                                     Bugün
                                 </Button>
@@ -278,7 +315,16 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                 </header>
 
                 {/* Calendar Grid */}
-                <main className="flex-1 overflow-auto p-6">
+                <main className="flex-1 overflow-auto p-6 flex flex-col">
+                    {/* Weekday Headers */}
+                    <div className="grid grid-cols-7 gap-2 mb-2">
+                        {weekDays.map((day) => (
+                            <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
+                                {day}
+                            </div>
+                        ))}
+                    </div>
+
                     {isLoading ? (
                         <div className="flex h-full items-center justify-center">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -294,13 +340,14 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                             </Button>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-6 gap-2">
-                            {days.map((day) => (
+                        <div className="grid grid-cols-7 gap-2 flex-1 auto-rows-fr">
+                            {daysData.map((day) => (
                                 <DayCell
                                     key={day.date.toISOString()}
                                     data={day}
                                     isSelected={selectedDate ? isSameDay(day.date, selectedDate) : false}
                                     onClick={() => setSelectedDate(day.date)}
+                                    isCurrentMonth={day.date.getMonth() === currentMonth.getMonth()}
                                 />
                             ))}
                         </div>

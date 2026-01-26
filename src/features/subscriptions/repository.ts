@@ -22,6 +22,7 @@ interface SubscriptionRow {
     end_date: string | null;
     created_at: string;
     updated_at: string;
+    sort_order?: number;
 }
 
 // Convert database row to Subscription
@@ -47,6 +48,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
         endDate: row.end_date ? new Date(row.end_date) : undefined,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at),
+        sortOrder: row.sort_order ?? 0,
     };
 }
 
@@ -66,6 +68,7 @@ export interface CreateSubscriptionInput {
     dueDay?: number;
     startDate?: Date;
     endDate?: Date;
+    sortOrder?: number;
 }
 
 // Update subscription input
@@ -78,7 +81,7 @@ export const subscriptionRepository = {
     async getAll(): Promise<Subscription[]> {
         const db = await getDatabase();
         const rows = await db.select<SubscriptionRow[]>(
-            'SELECT * FROM subscriptions ORDER BY name ASC'
+            'SELECT * FROM subscriptions ORDER BY sort_order ASC, name ASC'
         );
         return rows.map(rowToSubscription);
     },
@@ -87,7 +90,7 @@ export const subscriptionRepository = {
     async getActive(): Promise<Subscription[]> {
         const db = await getDatabase();
         const rows = await db.select<SubscriptionRow[]>(
-            'SELECT * FROM subscriptions WHERE is_active = 1 ORDER BY name ASC'
+            'SELECT * FROM subscriptions WHERE is_active = 1 ORDER BY sort_order ASC, name ASC'
         );
         return rows.map(rowToSubscription);
     },
@@ -110,13 +113,19 @@ export const subscriptionRepository = {
             const id = nanoid();
             const now = new Date().toISOString();
 
+            // Get max sort_order
+            const maxOrderResult = await db.select<{ max_order: number }[]>(
+                'SELECT MAX(sort_order) as max_order FROM subscriptions'
+            );
+            const nextOrder = (maxOrderResult[0]?.max_order ?? -1) + 1;
+
             await db.execute(
                 `INSERT INTO subscriptions (
             id, name, type, category, frequency, day_of_month,
             amount, currency, payment_method, reminders, 
             notes, statement_day, due_day, start_date, end_date,
-            created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            created_at, updated_at, sort_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     id,
                     input.name,
@@ -135,6 +144,7 @@ export const subscriptionRepository = {
                     input.endDate?.toISOString() ?? null,
                     now,
                     now,
+                    input.sortOrder ?? nextOrder,
                 ]
             );
 
@@ -219,6 +229,10 @@ export const subscriptionRepository = {
             updates.push('end_date = ?');
             values.push(input.endDate?.toISOString() ?? null);
         }
+        if (input.sortOrder !== undefined) {
+            updates.push('sort_order = ?');
+            values.push(input.sortOrder);
+        }
 
         updates.push('updated_at = ?');
         values.push(now);
@@ -269,5 +283,47 @@ export const subscriptionRepository = {
             [category]
         );
         return rows.map(rowToSubscription);
+    },
+
+    // Move subscription relative to another
+    async move(id: string, targetId: string, position: 'before' | 'after'): Promise<void> {
+        const db = await getDatabase();
+        // 1. Get all subscriptions ordered by current sort_order
+        const rows = await db.select<SubscriptionRow[]>(
+            'SELECT * FROM subscriptions ORDER BY sort_order ASC, name ASC'
+        );
+
+        const items = rows.map(rowToSubscription);
+        const currentIndex = items.findIndex((item) => item.id === id);
+        const targetIndex = items.findIndex((item) => item.id === targetId);
+
+        if (currentIndex === -1 || targetIndex === -1) return;
+
+        // 2. Remove from old position
+        const [item] = items.splice(currentIndex, 1);
+
+        // 3. Calculate new insertion index
+        // Note: targetIndex might have shifted if currentIndex < targetIndex
+        const adjustedTargetIndex = items.findIndex((item) => item.id === targetId);
+
+        let insertIndex = adjustedTargetIndex;
+        if (position === 'after') {
+            insertIndex = adjustedTargetIndex + 1;
+        }
+
+        items.splice(insertIndex, 0, item);
+
+        // 4. Update all items with new index (1-based)
+        for (let i = 0; i < items.length; i++) {
+            const sub = items[i];
+            const newOrder = i + 1;
+
+            if (sub.sortOrder !== newOrder) {
+                await db.execute(
+                    'UPDATE subscriptions SET sort_order = ?, updated_at = ? WHERE id = ?',
+                    [newOrder, new Date().toISOString(), sub.id]
+                );
+            }
+        }
     },
 };

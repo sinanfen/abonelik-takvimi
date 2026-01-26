@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Search,
     Plus,
@@ -11,6 +11,9 @@ import {
     Download,
     Upload,
     Settings,
+    ChevronUp,
+    ChevronDown,
+    PieChart,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { backupService } from '@/lib/backup';
@@ -46,8 +49,10 @@ import {
     useDeleteSubscription,
     useToggleSubscriptionActive,
     useCreateSubscription,
+    useMoveSubscription,
 } from '@/features/subscriptions';
 import type { Category, SubscriptionType, Subscription } from '@/types';
+import { SummaryDialog } from './SummaryDialog';
 
 const TYPE_LABELS: Record<SubscriptionType, string> = {
     subscription: 'Abonelik',
@@ -91,6 +96,11 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
     const [showInactive, setShowInactive] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscription | null>(null);
+    const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+
+    // Sorting state
+    const [sortColumn, setSortColumn] = useState<keyof Subscription | 'nextDate'>('sortOrder');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
@@ -128,23 +138,88 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
     const deleteMutation = useDeleteSubscription();
     const toggleActiveMutation = useToggleSubscriptionActive();
     const duplicateMutation = useCreateSubscription();
+    const moveSubscription = useMoveSubscription();
 
-    // Filter subscriptions
-    const filteredSubscriptions = subscriptions.filter((sub) => {
-        // Search filter
-        if (searchQuery && !sub.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-            return false;
+    const handleMove = async (sub: Subscription, direction: 'up' | 'down') => {
+        // Find in visible list
+        const currentIndex = processedSubscriptions.findIndex(s => s.id === sub.id);
+        if (currentIndex === -1) return;
+
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (targetIndex < 0 || targetIndex >= processedSubscriptions.length) return;
+
+        const targetSub = processedSubscriptions[targetIndex];
+
+        try {
+            await moveSubscription.mutateAsync({
+                id: sub.id,
+                targetId: targetSub.id,
+                position: direction === 'up' ? 'before' : 'after'
+            });
+        } catch (error) {
+            console.error("Failed to move subscription", error);
         }
-        // Category filter
-        if (categoryFilter !== 'all' && sub.category !== categoryFilter) {
-            return false;
+    };
+
+    const getNextPaymentDate = (sub: Subscription) => {
+        // Simple calculation - in real app this would use the recurrence engine
+        const today = new Date();
+        const dayOfMonth = sub.recurrence.dayOfMonth || 1;
+        const nextDate = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
+        if (nextDate < today) {
+            nextDate.setMonth(nextDate.getMonth() + 1);
         }
-        // Active filter
-        if (!showInactive && !sub.isActive) {
-            return false;
+        return nextDate;
+    };
+
+    // Filter and Sort subscriptions
+    const processedSubscriptions = useMemo(() => {
+        let result = subscriptions.filter((sub) => {
+            // Search filter
+            if (searchQuery && !sub.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                return false;
+            }
+            // Category filter
+            if (categoryFilter !== 'all' && sub.category !== categoryFilter) {
+                return false;
+            }
+            // Active filter
+            if (!showInactive && !sub.isActive) {
+                return false;
+            }
+            return true;
+        });
+
+        // Sort
+        result.sort((a, b) => {
+            let valA: any = a[sortColumn as keyof Subscription];
+            let valB: any = b[sortColumn as keyof Subscription];
+
+            if (sortColumn === 'nextDate') {
+                valA = getNextPaymentDate(a).getTime();
+                valB = getNextPaymentDate(b).getTime();
+            } else if (sortColumn === 'sortOrder') {
+                // If sortOrder is undefined/null, treat as 0
+                valA = a.sortOrder ?? 0;
+                valB = b.sortOrder ?? 0;
+            }
+
+            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return result;
+    }, [subscriptions, searchQuery, categoryFilter, showInactive, sortColumn, sortDirection]);
+
+    const handleSort = (column: keyof Subscription | 'nextDate') => {
+        if (sortColumn === column) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(column);
+            setSortDirection('asc');
         }
-        return true;
-    });
+    };
 
     const formatDate = (date: Date | undefined) => {
         if (!date) return '-';
@@ -161,17 +236,6 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
         return `${symbols[currency] || currency} ${amount.toLocaleString('tr-TR', {
             minimumFractionDigits: 2,
         })}`;
-    };
-
-    const getNextPaymentDate = (sub: Subscription) => {
-        // Simple calculation - in real app this would use the recurrence engine
-        const today = new Date();
-        const dayOfMonth = sub.recurrence.dayOfMonth || 1;
-        const nextDate = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
-        if (nextDate < today) {
-            nextDate.setMonth(nextDate.getMonth() + 1);
-        }
-        return nextDate;
     };
 
     const handleDelete = async () => {
@@ -208,6 +272,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                 statementDay: sub.statementDay,
                 dueDay: sub.dueDay,
                 reminders: sub.reminders,
+                sortOrder: (sub.sortOrder ?? 0) + 1, // Place next to original? Or rely on default? Let's relying on default logic is better, but here we explicitly set it.
             });
         } catch (error) {
             console.error('Failed to duplicate subscription:', error);
@@ -227,12 +292,25 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
         );
     }
 
+    const SortIcon = ({ column }: { column: string }) => {
+        if (sortColumn !== column) return <div className="w-4 h-4" />; // Placeholder
+        return sortDirection === 'asc' ? (
+            <ChevronUp className="ml-1 h-3 w-3 inline" />
+        ) : (
+            <ChevronDown className="ml-1 h-3 w-3 inline" />
+        );
+    };
+
     return (
         <div className="flex h-full flex-col">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
                 <h1 className="text-xl font-semibold text-foreground">Yönetim Paneli</h1>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsSummaryOpen(true)}>
+                        <PieChart className="mr-2 h-4 w-4" />
+                        Rapor
+                    </Button>
                     <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
                         <Download className="mr-2 h-4 w-4" />
                         {isExporting ? 'Yedekleniyor...' : 'Yedekle'}
@@ -288,7 +366,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                 </Button>
 
                 <div className="ml-auto text-sm text-muted-foreground">
-                    {filteredSubscriptions.length} abonelik
+                    {processedSubscriptions.length} abonelik
                 </div>
             </div>
 
@@ -302,19 +380,35 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Ad</TableHead>
-                                <TableHead>Tür</TableHead>
-                                <TableHead>Kategori</TableHead>
-                                <TableHead>Sonraki Tarih</TableHead>
-                                <TableHead>Tutar</TableHead>
-                                <TableHead>Durum</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                                <TableHead onClick={() => handleSort('sortOrder')} className="cursor-pointer hover:text-foreground">
+                                    # <SortIcon column="sortOrder" />
+                                </TableHead>
+                                <TableHead onClick={() => handleSort('name')} className="cursor-pointer hover:text-foreground">
+                                    Ad <SortIcon column="name" />
+                                </TableHead>
+                                <TableHead onClick={() => handleSort('type')} className="cursor-pointer hover:text-foreground">
+                                    Tür <SortIcon column="type" />
+                                </TableHead>
+                                <TableHead onClick={() => handleSort('category')} className="cursor-pointer hover:text-foreground">
+                                    Kategori <SortIcon column="category" />
+                                </TableHead>
+                                <TableHead onClick={() => handleSort('nextDate')} className="cursor-pointer hover:text-foreground">
+                                    Sonraki Tarih <SortIcon column="nextDate" />
+                                </TableHead>
+                                <TableHead onClick={() => handleSort('amount')} className="cursor-pointer hover:text-foreground">
+                                    Tutar <SortIcon column="amount" />
+                                </TableHead>
+                                <TableHead onClick={() => handleSort('isActive')} className="cursor-pointer hover:text-foreground">
+                                    Durum <SortIcon column="isActive" />
+                                </TableHead>
                                 <TableHead className="text-right">İşlemler</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredSubscriptions.length === 0 ? (
+                            {processedSubscriptions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
+                                    <TableCell colSpan={9} className="h-24 text-center">
                                         <p className="text-muted-foreground">
                                             {subscriptions.length === 0
                                                 ? 'Henüz kayıt eklenmemiş. "Yeni Kayıt" butonuna tıklayarak başlayın.'
@@ -323,8 +417,35 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredSubscriptions.map((sub) => (
+                                processedSubscriptions.map((sub, index) => (
                                     <TableRow key={sub.id} className={cn(!sub.isActive && 'opacity-50')}>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1 items-center">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6"
+                                                    onClick={() => handleMove(sub, 'up')}
+                                                    disabled={sortColumn !== 'sortOrder' || moveSubscription.isPending || index === 0}
+                                                    title={sortColumn !== 'sortOrder' ? "Sıralamak için '#' sütununa tıklayın" : "Yukarı taşı"}
+                                                >
+                                                    <ChevronUp className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6"
+                                                    onClick={() => handleMove(sub, 'down')}
+                                                    disabled={sortColumn !== 'sortOrder' || moveSubscription.isPending || index === processedSubscriptions.length - 1}
+                                                    title={sortColumn !== 'sortOrder' ? "Sıralamak için '#' sütununa tıklayın" : "Aşağı taşı"}
+                                                >
+                                                    <ChevronDown className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs text-muted-foreground">
+                                            {sub.sortOrder}
+                                        </TableCell>
                                         <TableCell className="font-medium">{sub.name}</TableCell>
                                         <TableCell>{TYPE_LABELS[sub.type]}</TableCell>
                                         <TableCell>
@@ -420,6 +541,12 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            {/* Summary Dialog */}
+            <SummaryDialog
+                isOpen={isSummaryOpen}
+                onClose={() => setIsSummaryOpen(false)}
+                subscriptions={processedSubscriptions}
+            />
         </div>
     );
 }

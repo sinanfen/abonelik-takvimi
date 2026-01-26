@@ -17,9 +17,10 @@ interface DayCellProps {
     data: DayData;
     isSelected: boolean;
     onClick: () => void;
+    isCurrentMonth?: boolean;
 }
 
-export function DayCell({ data, isSelected, onClick }: DayCellProps) {
+export function DayCell({ data, isSelected, onClick, isCurrentMonth = true }: DayCellProps) {
     const { date, events } = data;
     const today = isToday(date);
     const displayEvents = events.slice(0, 3);
@@ -33,7 +34,8 @@ export function DayCell({ data, isSelected, onClick }: DayCellProps) {
                 'hover:border-primary/50 hover:bg-card/50',
                 today && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
                 isSelected && 'border-primary bg-card',
-                !isSelected && !today && 'border-border bg-card/30'
+                !isSelected && !today && 'border-border bg-card/30',
+                !isCurrentMonth && 'opacity-40 grayscale'
             )}
         >
             {/* Date header */}

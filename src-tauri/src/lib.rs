@@ -29,6 +29,12 @@ pub fn run() {
                     updated_at TEXT DEFAULT (datetime('now'))
                 );
             "#,
+           kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "Add sort_order column",
+            sql: "ALTER TABLE subscriptions ADD COLUMN sort_order INTEGER DEFAULT 0;",
             kind: MigrationKind::Up,
         },
     ];
