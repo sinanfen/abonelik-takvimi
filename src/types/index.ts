@@ -8,7 +8,16 @@ export type Category =
     | 'SaaS'
     | 'Insurance'
     | 'Shopping'
+    | 'Housing'
+    | 'Utilities'
+    | 'Telecom'
+    | 'Transportation'
+    | 'Health'
+    | 'Education'
+    | 'Food'
     | 'Other';
+
+export type RecurrenceType = 'recurring' | 'one_time';
 
 export type EventKind = 'payment' | 'statement' | 'due' | 'reminder';
 
@@ -25,6 +34,7 @@ export interface Subscription {
     type: SubscriptionType;
     category: Category;
     recurrence: RecurrenceRule;
+    recurrenceType: RecurrenceType;
     amount?: number;
     currency: string;
     paymentMethod?: string;
@@ -48,8 +58,19 @@ export interface SubscriptionEvent {
     title: string;
     category: Category;
     amount?: number;
+    currency: string;
+    subscriptionType: SubscriptionType;
+    notes?: string;
     status?: 'planned' | 'done' | 'skipped';
     sortOrder?: number;
+}
+
+export interface MonthlySnapshot {
+    id: string;
+    month: string;
+    items: SubscriptionEvent[];
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 export interface DayData {

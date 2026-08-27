@@ -2,13 +2,28 @@ import { save, open } from '@tauri-apps/plugin-dialog';
 import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { subscriptionRepository } from '@/features/subscriptions/repository';
 import type { CreateSubscriptionInput } from '@/features/subscriptions/repository';
-// import type { Subscription } from '@/types'; // Unused
+import { snapshotRepository } from '@/features/snapshots';
+import type { MonthlySnapshot, Subscription } from '@/types';
+
+interface BackupPayload {
+    version: 2;
+    exportedAt: string;
+    subscriptions: Subscription[];
+    snapshots: MonthlySnapshot[];
+}
 
 export const backupService = {
     async exportData(): Promise<boolean> {
         try {
             const subscriptions = await subscriptionRepository.getAll();
-            const data = JSON.stringify(subscriptions, null, 2);
+            const snapshots = await snapshotRepository.getAll();
+            const payload: BackupPayload = {
+                version: 2,
+                exportedAt: new Date().toISOString(),
+                subscriptions,
+                snapshots,
+            };
+            const data = JSON.stringify(payload, null, 2);
 
             const filePath = await save({
                 filters: [{
@@ -41,8 +56,10 @@ export const backupService = {
 
             if (filePath && typeof filePath === 'string') {
                 const content = await readTextFile(filePath);
-                // JSON parse edince tarihler string kalır
-                const rawSubscriptions = JSON.parse(content) as any[];
+                const parsed = JSON.parse(content) as BackupPayload | Subscription[];
+                const rawSubscriptions = Array.isArray(parsed) ? parsed : parsed.subscriptions;
+                const rawSnapshots = Array.isArray(parsed) ? [] : (parsed.snapshots ?? []);
+                const idMap = new Map<string, string>();
 
                 for (const sub of rawSubscriptions) {
                     // Temel validation: En azından name ve type olmalı
@@ -54,6 +71,7 @@ export const backupService = {
                         category: sub.category,
                         // recurrence objesinden alıyoruz
                         frequency: sub.recurrence?.frequency || 'monthly',
+                        recurrenceType: sub.recurrenceType ?? 'recurring',
                         dayOfMonth: sub.recurrence?.dayOfMonth,
                         amount: sub.amount,
                         currency: sub.currency,
@@ -68,6 +86,7 @@ export const backupService = {
 
                     try {
                         const created = await subscriptionRepository.create(input);
+                        idMap.set(sub.id, created.id);
 
                         // Eğer import edilen veri pasifse, yeni kaydı da pasife çek
                         if (sub.isActive === false) {
@@ -78,6 +97,21 @@ export const backupService = {
                         // Bir hata olsa bile diğerlerini import etmeye devam et
                     }
                 }
+
+                if (rawSnapshots.length > 0) {
+                    const hydratedSnapshots: MonthlySnapshot[] = rawSnapshots.map((snapshot) => ({
+                        ...snapshot,
+                        createdAt: new Date(snapshot.createdAt),
+                        updatedAt: new Date(snapshot.updatedAt),
+                        items: snapshot.items.map((item) => ({
+                            ...item,
+                            subscriptionId: idMap.get(item.subscriptionId) ?? item.subscriptionId,
+                            date: new Date(item.date),
+                        })),
+                    }));
+                    await snapshotRepository.replaceAll(hydratedSnapshots);
+                }
+                await snapshotRepository.refreshRollingSnapshots();
                 return true;
             }
             return false;

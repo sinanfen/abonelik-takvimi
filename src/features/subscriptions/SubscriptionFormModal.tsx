@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
     Dialog,
@@ -24,6 +24,7 @@ import {
     subscriptionTypes,
     categories,
     frequencies,
+    recurrenceTypes,
     reminderOptions,
     defaultFormValues,
     type SubscriptionFormData,
@@ -47,7 +48,7 @@ export function SubscriptionFormModal({
     const {
         register,
         handleSubmit,
-        watch,
+        control,
         setValue,
         reset,
         formState: { errors, isSubmitting },
@@ -55,17 +56,26 @@ export function SubscriptionFormModal({
         resolver: zodResolver(subscriptionFormSchema),
         defaultValues: { ...defaultFormValues, ...initialData },
     });
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             reset({ ...defaultFormValues, ...initialData });
-            setSubmitError(null);
         }
     }, [isOpen, initialData, reset]);
 
-    const selectedType = watch('type');
+    const selectedType = useWatch({ control, name: 'type' });
     const isCreditCard = selectedType === 'credit_card';
-    const [submitError, setSubmitError] = useState<string | null>(null);
+    const recurrenceType = useWatch({ control, name: 'recurrenceType' });
+    const frequency = useWatch({ control, name: 'frequency' });
+    const selectedCategory = useWatch({ control, name: 'category' });
+    const selectedCurrency = useWatch({ control, name: 'currency' });
+    const selectedReminders = useWatch({ control, name: 'reminders' }) ?? [];
+    useEffect(() => {
+        if (isCreditCard && recurrenceType === 'recurring') {
+            setValue('frequency', 'monthly');
+        }
+    }, [isCreditCard, recurrenceType, setValue]);
 
     const handleFormSubmit = async (data: SubscriptionFormData) => {
         setSubmitError(null);
@@ -80,7 +90,7 @@ export function SubscriptionFormModal({
 
             // Eğer başarıyla tamamlanırsa:
             reset();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Form submission error:', error);
             // Hata detayını göster
             let errorMessage = 'Beklenmeyen bir hata oluştu';
@@ -101,6 +111,7 @@ export function SubscriptionFormModal({
 
     const handleClose = () => {
         reset();
+        setSubmitError(null);
         onClose();
     };
 
@@ -108,19 +119,19 @@ export function SubscriptionFormModal({
         <Dialog open={isOpen} onOpenChange={handleClose}>
             <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Yeni Kayıt</DialogTitle>
+                    <DialogTitle>{initialData ? 'Kaydı Düzenle' : 'Yeni Kayıt'}</DialogTitle>
                     <DialogDescription>
-                        Yeni bir abonelik veya ödeme ekleyin.
+                        Tek seferlik bir harcama veya tekrar eden bir ödeme ekleyin.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
                     {/* Name */}
                     <div className="space-y-2">
-                        <Label htmlFor="name">Abonelik Adı</Label>
+                        <Label htmlFor="name">Kayıt Adı</Label>
                         <Input
                             id="name"
-                            placeholder="Netflix, Spotify..."
+                            placeholder="Kira, Spotify, market alışverişi..."
                             {...register('name')}
                             className={cn(errors.name && 'border-destructive')}
                         />
@@ -133,7 +144,7 @@ export function SubscriptionFormModal({
                     <div className="space-y-2">
                         <Label>Tür</Label>
                         <Select
-                            value={watch('type')}
+                            value={selectedType}
                             onValueChange={(value) =>
                                 setValue('type', value as SubscriptionFormData['type'])
                             }
@@ -155,7 +166,7 @@ export function SubscriptionFormModal({
                     <div className="space-y-2">
                         <Label>Kategori</Label>
                         <Select
-                            value={watch('category')}
+                            value={selectedCategory}
                             onValueChange={(value) =>
                                 setValue('category', value as SubscriptionFormData['category'])
                             }
@@ -181,30 +192,55 @@ export function SubscriptionFormModal({
 
                     {/* Frequency */}
                     <div className="space-y-2">
-                        <Label>Tekrar Sıklığı</Label>
+                        <Label>Ödeme Düzeni</Label>
                         <Select
-                            value={watch('frequency')}
+                            value={recurrenceType}
                             onValueChange={(value) =>
-                                setValue('frequency', value as SubscriptionFormData['frequency'])
+                                setValue('recurrenceType', value as SubscriptionFormData['recurrenceType'])
                             }
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="Sıklık seçin" />
+                                <SelectValue placeholder="Ödeme düzeni seçin" />
                             </SelectTrigger>
                             <SelectContent>
-                                {frequencies.map((freq) => (
-                                    <SelectItem key={freq.value} value={freq.value}>
-                                        {freq.label}
+                                {recurrenceTypes.map((item) => (
+                                    <SelectItem key={item.value} value={item.value}>
+                                        {item.label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Tek seferlik kayıt yalnızca seçtiğiniz ayın snapshot'ında yer alır.
+                        </p>
                     </div>
 
-                    {/* Day of Month (for monthly) */}
-                    {!isCreditCard && (
+                    {recurrenceType === 'recurring' && !isCreditCard && (
                         <div className="space-y-2">
-                            <Label htmlFor="dayOfMonth">Ayın Günü</Label>
+                            <Label>Tekrar Sıklığı</Label>
+                            <Select
+                                value={frequency}
+                                onValueChange={(value) =>
+                                    setValue('frequency', value as SubscriptionFormData['frequency'])
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Sıklık seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {frequencies.map((item) => (
+                                        <SelectItem key={item.value} value={item.value}>
+                                            {item.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
+                    {recurrenceType === 'recurring' && frequency === 'monthly' && !isCreditCard && (
+                        <div className="space-y-2">
+                            <Label htmlFor="dayOfMonth">Her ayın kaçıncı günü?</Label>
                             <Input
                                 id="dayOfMonth"
                                 type="number"
@@ -217,7 +253,7 @@ export function SubscriptionFormModal({
                     )}
 
                     {/* Credit Card Fields */}
-                    {isCreditCard && (
+                    {isCreditCard && recurrenceType === 'recurring' && (
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="statementDay">Hesap Kesim Günü</Label>
@@ -244,6 +280,37 @@ export function SubscriptionFormModal({
                         </div>
                     )}
 
+                    <div className={cn('grid gap-4', recurrenceType === 'recurring' && 'grid-cols-2')}>
+                        <div className="space-y-2">
+                            <Label htmlFor="startDate">
+                                {recurrenceType === 'one_time' ? 'Harcama / ödeme tarihi' : 'Başlangıç tarihi'}
+                            </Label>
+                            <Input
+                                id="startDate"
+                                type="date"
+                                {...register('startDate')}
+                                className={cn(errors.startDate && 'border-destructive')}
+                            />
+                            {errors.startDate && (
+                                <p className="text-sm text-destructive">{errors.startDate.message}</p>
+                            )}
+                        </div>
+                        {recurrenceType === 'recurring' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="endDate">Bitiş tarihi (Opsiyonel)</Label>
+                                <Input
+                                    id="endDate"
+                                    type="date"
+                                    {...register('endDate')}
+                                    className={cn(errors.endDate && 'border-destructive')}
+                                />
+                                {errors.endDate && (
+                                    <p className="text-sm text-destructive">{errors.endDate.message}</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Amount */}
                     <div className="grid grid-cols-3 gap-4">
                         <div className="col-span-2 space-y-2">
@@ -260,7 +327,7 @@ export function SubscriptionFormModal({
                         <div className="space-y-2">
                             <Label htmlFor="currency">Para Birimi</Label>
                             <Select
-                                value={watch('currency')}
+                                value={selectedCurrency}
                                 onValueChange={(value) => setValue('currency', value)}
                             >
                                 <SelectTrigger>
@@ -283,9 +350,9 @@ export function SubscriptionFormModal({
                                 <div key={option.value} className="flex items-center space-x-2">
                                     <Checkbox
                                         id={`reminder-${option.value}`}
-                                        checked={watch('reminders')?.includes(option.value)}
+                                        checked={selectedReminders.includes(option.value)}
                                         onCheckedChange={(checked) => {
-                                            const current = watch('reminders') || [];
+                                            const current = selectedReminders;
                                             if (checked) {
                                                 setValue('reminders', [...current, option.value]);
                                             } else {

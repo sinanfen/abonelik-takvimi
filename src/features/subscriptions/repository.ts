@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import { getDatabase } from '@/lib/database';
-import type { Subscription, SubscriptionType, Category } from '@/types';
+import type { Subscription, SubscriptionType, Category, RecurrenceType } from '@/types';
 
 // Database row interface
 interface SubscriptionRow {
@@ -9,6 +9,7 @@ interface SubscriptionRow {
     type: SubscriptionType;
     category: Category;
     frequency: 'monthly' | 'weekly' | 'yearly' | 'custom';
+    recurrence_type: RecurrenceType;
     day_of_month: number | null;
     amount: number | null;
     currency: string;
@@ -36,6 +37,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
             frequency: row.frequency,
             dayOfMonth: row.day_of_month ?? undefined,
         },
+        recurrenceType: row.recurrence_type ?? 'recurring',
         amount: row.amount ?? undefined,
         currency: row.currency,
         paymentMethod: row.payment_method ?? undefined,
@@ -58,6 +60,7 @@ export interface CreateSubscriptionInput {
     type: SubscriptionType;
     category: Category;
     frequency: 'monthly' | 'weekly' | 'yearly' | 'custom';
+    recurrenceType?: RecurrenceType;
     dayOfMonth?: number;
     amount?: number;
     currency?: string;
@@ -66,8 +69,8 @@ export interface CreateSubscriptionInput {
     notes?: string;
     statementDay?: number;
     dueDay?: number;
-    startDate?: Date;
-    endDate?: Date;
+    startDate?: Date | null;
+    endDate?: Date | null;
     sortOrder?: number;
 }
 
@@ -121,17 +124,18 @@ export const subscriptionRepository = {
 
             await db.execute(
                 `INSERT INTO subscriptions (
-            id, name, type, category, frequency, day_of_month,
+            id, name, type, category, frequency, recurrence_type, day_of_month,
             amount, currency, payment_method, reminders, 
             notes, statement_day, due_day, start_date, end_date,
             created_at, updated_at, sort_order
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     id,
                     input.name,
                     input.type,
                     input.category,
                     input.frequency,
+                    input.recurrenceType ?? 'recurring',
                     input.dayOfMonth ?? null,
                     input.amount ?? null,
                     input.currency ?? 'TRY',
@@ -184,6 +188,10 @@ export const subscriptionRepository = {
         if (input.frequency !== undefined) {
             updates.push('frequency = ?');
             values.push(input.frequency);
+        }
+        if (input.recurrenceType !== undefined) {
+            updates.push('recurrence_type = ?');
+            values.push(input.recurrenceType);
         }
         if (input.dayOfMonth !== undefined) {
             updates.push('day_of_month = ?');

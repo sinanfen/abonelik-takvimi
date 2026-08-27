@@ -4,16 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Category } from '@/types';
-
-const CATEGORIES: { value: Category; label: string; color: string }[] = [
-    { value: 'Banking', label: 'Bankacılık', color: '#60A5FA' },
-    { value: 'Entertainment', label: 'Eğlence', color: '#A78BFA' },
-    { value: 'Bills', label: 'Faturalar', color: '#FBBF24' },
-    { value: 'SaaS', label: 'SaaS', color: '#34D399' },
-    { value: 'Insurance', label: 'Sigorta', color: '#FB7185' },
-    { value: 'Shopping', label: 'Alışveriş', color: '#F97316' },
-    { value: 'Other', label: 'Diğer', color: '#94A3B8' },
-];
+import { categories as CATEGORIES } from '@/features/subscriptions/schema';
 
 export interface FilterState {
     categories: Category[];

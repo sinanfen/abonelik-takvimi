@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Calendar, LayoutList } from 'lucide-react';
+import { Calendar, History, LayoutList } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CalendarView } from '@/features/calendar/CalendarView';
 import { AdminPanel } from '@/features/admin';
+import { HistoryView } from '@/features/history/HistoryView';
 import type { Subscription } from '@/types';
 import {
   SubscriptionFormModal,
@@ -23,6 +24,15 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function parseFormDate(value: string | undefined): Date | null {
+  return value ? new Date(`${value}T12:00:00`) : null;
+}
+
+function formatFormDate(value: Date | undefined): string | undefined {
+  if (!value) return undefined;
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('calendar');
@@ -76,6 +86,7 @@ function AppContent() {
             type: data.type,
             category: data.category,
             frequency: data.frequency,
+            recurrenceType: data.recurrenceType,
             dayOfMonth: data.dayOfMonth,
             amount: data.amount,
             currency: data.currency,
@@ -83,6 +94,8 @@ function AppContent() {
             statementDay: data.statementDay,
             dueDay: data.dueDay,
             reminders: data.reminders,
+            startDate: parseFormDate(data.startDate),
+            endDate: parseFormDate(data.endDate),
           },
         });
       } else {
@@ -91,6 +104,7 @@ function AppContent() {
           type: data.type,
           category: data.category,
           frequency: data.frequency,
+          recurrenceType: data.recurrenceType,
           dayOfMonth: data.dayOfMonth,
           amount: data.amount,
           currency: data.currency,
@@ -98,6 +112,8 @@ function AppContent() {
           statementDay: data.statementDay,
           dueDay: data.dueDay,
           reminders: data.reminders,
+          startDate: parseFormDate(data.startDate),
+          endDate: parseFormDate(data.endDate),
         });
       }
       setIsFormModalOpen(false);
@@ -127,6 +143,10 @@ function AppContent() {
               <LayoutList className="h-4 w-4" />
               Yönetim
             </TabsTrigger>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" />
+              Geçmiş
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -141,6 +161,10 @@ function AppContent() {
             onOpenSettings={handleOpenSettings}
           />
         </TabsContent>
+
+        <TabsContent value="history" className="flex-1 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
+          <HistoryView />
+        </TabsContent>
       </Tabs>
 
       {/* Subscription Form Modal */}
@@ -152,6 +176,7 @@ function AppContent() {
           name: editingSubscription.name,
           type: editingSubscription.type,
           category: editingSubscription.category,
+          recurrenceType: editingSubscription.recurrenceType,
           frequency: editingSubscription.recurrence.frequency === 'custom' ? 'monthly' : editingSubscription.recurrence.frequency,
           dayOfMonth: editingSubscription.recurrence.dayOfMonth,
           amount: editingSubscription.amount,
@@ -160,6 +185,8 @@ function AppContent() {
           reminders: editingSubscription.reminders,
           statementDay: editingSubscription.statementDay,
           dueDay: editingSubscription.dueDay,
+          startDate: formatFormDate(editingSubscription.startDate ?? editingSubscription.createdAt),
+          endDate: formatFormDate(editingSubscription.endDate),
         } : undefined}
       />
 

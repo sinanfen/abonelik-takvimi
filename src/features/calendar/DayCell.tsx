@@ -2,16 +2,9 @@ import { format, isToday } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { DayData } from '@/types';
+import { categories } from '@/features/subscriptions/schema';
 
-const CATEGORY_COLORS: Record<string, string> = {
-    Banking: 'bg-category-banking/20 text-category-banking border-category-banking/30',
-    Entertainment: 'bg-category-entertainment/20 text-category-entertainment border-category-entertainment/30',
-    Bills: 'bg-category-bills/20 text-category-bills border-category-bills/30',
-    SaaS: 'bg-category-saas/20 text-category-saas border-category-saas/30',
-    Insurance: 'bg-category-insurance/20 text-category-insurance border-category-insurance/30',
-    Shopping: 'bg-category-shopping/20 text-category-shopping border-category-shopping/30',
-    Other: 'bg-category-other/20 text-category-other border-category-other/30',
-};
+const CATEGORY_COLORS = new Map(categories.map((category) => [category.value, category.color]));
 
 interface DayCellProps {
     data: DayData;
@@ -60,10 +53,12 @@ export function DayCell({ data, isSelected, onClick, isCurrentMonth = true }: Da
                 {displayEvents.map((event) => (
                     <div
                         key={event.id}
-                        className={cn(
-                            'truncate rounded-md border px-1.5 py-0.5 text-xs font-medium',
-                            CATEGORY_COLORS[event.category] ?? CATEGORY_COLORS.Other
-                        )}
+                        className="truncate rounded-md border px-1.5 py-0.5 text-xs font-medium"
+                        style={{
+                            color: CATEGORY_COLORS.get(event.category) ?? '#94A3B8',
+                            borderColor: `${CATEGORY_COLORS.get(event.category) ?? '#94A3B8'}55`,
+                            backgroundColor: `${CATEGORY_COLORS.get(event.category) ?? '#94A3B8'}20`,
+                        }}
                     >
                         {event.title}
                     </div>

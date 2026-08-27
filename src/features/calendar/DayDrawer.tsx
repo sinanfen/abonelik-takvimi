@@ -1,11 +1,10 @@
-import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { X, Plus, CreditCard, Receipt, Bell, Banknote, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import type { DayData, SubscriptionEvent } from '@/types';
 import { useMoveSubscription } from '@/features/subscriptions';
+import { categories } from '@/features/subscriptions/schema';
 
 const KIND_ICONS: Record<string, React.ReactNode> = {
     payment: <Banknote className="h-4 w-4" />,
@@ -21,31 +20,23 @@ const KIND_LABELS: Record<string, string> = {
     reminder: 'Hatırlatma',
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-    Banking: 'text-category-banking',
-    Entertainment: 'text-category-entertainment',
-    Bills: 'text-category-bills',
-    SaaS: 'text-category-saas',
-    Insurance: 'text-category-insurance',
-    Shopping: 'text-category-shopping',
-    Other: 'text-category-other',
-};
+const CATEGORY_COLORS = new Map(categories.map((category) => [category.value, category.color]));
+const CATEGORY_LABELS = new Map(categories.map((category) => [category.value, category.label]));
 
 interface DayDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     dayData: DayData | null;
     onNewSubscription?: () => void;
+    isReadOnly?: boolean;
 }
 
-export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDrawerProps) {
+export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription, isReadOnly = false }: DayDrawerProps) {
     const moveSubscription = useMoveSubscription();
 
 
-    const sortedEvents = useMemo(() => {
-        if (!dayData?.events) return [];
-        return [...dayData.events].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    }, [dayData?.events]);
+    const sortedEvents = [...(dayData?.events ?? [])]
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
     const handleMove = async (event: SubscriptionEvent, direction: 'up' | 'down') => {
         // Find index in VISIBLE list
@@ -108,10 +99,12 @@ export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDr
                             <p className="mt-4 text-sm text-muted-foreground">
                                 Bu gün için kayıt yok
                             </p>
-                            <Button className="mt-4" size="sm" onClick={onNewSubscription}>
-                                <Plus className="h-4 w-4" />
-                                Yeni Ekle
-                            </Button>
+                            {!isReadOnly && (
+                                <Button className="mt-4" size="sm" onClick={onNewSubscription}>
+                                    <Plus className="h-4 w-4" />
+                                    Yeni Ekle
+                                </Button>
+                            )}
                         </div>
                     ) : (
                         <div className="space-y-3">
@@ -119,8 +112,8 @@ export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDr
                                 <EventCard
                                     key={event.id}
                                     event={event}
-                                    onMoveUp={index > 0 ? () => handleMove(event, 'up') : undefined}
-                                    onMoveDown={index < sortedEvents.length - 1 ? () => handleMove(event, 'down') : undefined}
+                                    onMoveUp={!isReadOnly && index > 0 ? () => handleMove(event, 'up') : undefined}
+                                    onMoveDown={!isReadOnly && index < sortedEvents.length - 1 ? () => handleMove(event, 'down') : undefined}
                                     isUpdating={moveSubscription.isPending}
                                 />
                             ))}
@@ -129,7 +122,7 @@ export function DayDrawer({ isOpen, onClose, dayData, onNewSubscription }: DayDr
                 </div>
 
                 {/* Footer */}
-                {sortedEvents.length > 0 && (
+                {sortedEvents.length > 0 && !isReadOnly && (
                     <div className="border-t border-border p-4">
                         <Button className="w-full" onClick={onNewSubscription}>
                             <Plus className="h-4 w-4" />
@@ -154,7 +147,8 @@ function EventCard({ event, onMoveUp, onMoveDown, isUpdating }: EventCardProps) 
         <div className="group relative rounded-xl border border-border bg-card p-4 transition-colors hover:bg-card/80">
             {/* Reorder Buttons (Visible on Hover or always visible?) */}
             {/* To make it clean, let's put them on the right side or valid position */}
-            <div className="absolute -left-3 top-1/2 flex -translate-y-1/2 flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            {(onMoveUp || onMoveDown) && (
+                <div className="absolute -left-3 top-1/2 flex -translate-y-1/2 flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <Button
                     variant="secondary"
                     size="icon"
@@ -173,28 +167,30 @@ function EventCard({ event, onMoveUp, onMoveDown, isUpdating }: EventCardProps) 
                 >
                     <ChevronDown className="h-3 w-3" />
                 </Button>
-            </div>
+                </div>
+            )}
 
             <div className="flex items-start justify-between pl-2">
                 <div className="flex items-center gap-3">
                     <div
-                        className={cn(
-                            'flex h-10 w-10 items-center justify-center rounded-lg bg-secondary',
-                            CATEGORY_COLORS[event.category]
-                        )}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary"
+                        style={{ color: CATEGORY_COLORS.get(event.category) ?? '#94A3B8' }}
                     >
                         {KIND_ICONS[event.kind]}
                     </div>
                     <div>
                         <h3 className="font-medium text-foreground">{event.title}</h3>
                         <p className="text-sm text-muted-foreground">
-                            {KIND_LABELS[event.kind]} • {event.category}
+                            {KIND_LABELS[event.kind]} • {CATEGORY_LABELS.get(event.category) ?? event.category}
                         </p>
                     </div>
                 </div>
-                {event.amount && (
+                {event.amount !== undefined && (
                     <span className="font-semibold text-foreground">
-                        ₺{event.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                        {new Intl.NumberFormat('tr-TR', {
+                            style: 'currency',
+                            currency: event.currency,
+                        }).format(event.amount)}
                     </span>
                 )}
             </div>

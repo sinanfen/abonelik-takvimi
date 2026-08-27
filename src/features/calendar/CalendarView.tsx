@@ -7,7 +7,6 @@ import {
     format,
     isSameDay,
     isBefore,
-    getDate,
 } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import {
@@ -25,87 +24,7 @@ import { Input } from '@/components/ui/input';
 import { DayCell } from './DayCell';
 import { DayDrawer } from './DayDrawer';
 import { FilterSidebar, defaultFilters, type FilterState } from './FilterSidebar';
-import { useActiveSubscriptions } from '@/features/subscriptions';
-import type { SubscriptionEvent, Subscription } from '@/types';
-
-// Generate events from subscriptions for a date range
-function generateEventsForDateRange(
-    subscriptions: Subscription[],
-    startDate: Date,
-    daysCount: number
-): SubscriptionEvent[] {
-    const events: SubscriptionEvent[] = [];
-    const endDate = addDays(startDate, daysCount - 1);
-
-    for (const sub of subscriptions) {
-        if (!sub.isActive) continue;
-
-        // For credit cards, generate both statement and due events
-        if (sub.type === 'credit_card') {
-            if (sub.statementDay) {
-                // Generate statement events
-                for (let d = new Date(startDate); d <= endDate; d = addDays(d, 1)) {
-                    if (getDate(d) === sub.statementDay) {
-                        events.push({
-                            id: `${sub.id}-statement-${d.toISOString()}`,
-                            subscriptionId: sub.id,
-                            date: new Date(d),
-                            kind: 'statement',
-                            title: `${sub.name} - Hesap Kesim`,
-                            category: sub.category,
-                            sortOrder: sub.sortOrder,
-                        });
-                    }
-                }
-            }
-            if (sub.dueDay) {
-                // Generate due events
-                for (let d = new Date(startDate); d <= endDate; d = addDays(d, 1)) {
-                    if (getDate(d) === sub.dueDay) {
-                        events.push({
-                            id: `${sub.id}-due-${d.toISOString()}`,
-                            subscriptionId: sub.id,
-                            date: new Date(d),
-                            kind: 'due',
-                            title: `${sub.name} - Son Ödeme`,
-                            category: sub.category,
-                            sortOrder: sub.sortOrder,
-                        });
-                    }
-                }
-            }
-        } else {
-            // For regular subscriptions, generate payment events
-            const dayOfMonth = sub.recurrence.dayOfMonth || 1;
-
-            for (let month = startDate.getMonth() - 1; month <= endDate.getMonth() + 1; month++) {
-                const year = startDate.getFullYear() + Math.floor(month / 12);
-                const actualMonth = ((month % 12) + 12) % 12;
-
-                // Handle month-end overflow (e.g., day 31 in February)
-                const daysInMonth = new Date(year, actualMonth + 1, 0).getDate();
-                const actualDay = Math.min(dayOfMonth, daysInMonth);
-
-                const eventDate = new Date(year, actualMonth, actualDay);
-
-                if (eventDate >= startDate && eventDate <= endDate) {
-                    events.push({
-                        id: `${sub.id}-payment-${eventDate.toISOString()}`,
-                        subscriptionId: sub.id,
-                        date: eventDate,
-                        kind: 'payment',
-                        title: sub.name,
-                        category: sub.category,
-                        amount: sub.amount,
-                        sortOrder: sub.sortOrder,
-                    });
-                }
-            }
-        }
-    }
-
-    return events.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-}
+import { toMonthKey, useMonthlySnapshot } from '@/features/snapshots';
 
 interface CalendarViewProps {
     onNewSubscription?: () => void;
@@ -142,6 +61,7 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
             const success = await backupService.importData();
             if (success) {
                 queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+                queryClient.invalidateQueries({ queryKey: ['snapshots'] });
             }
         } catch (error) {
             console.error('Import failed:', error);
@@ -151,11 +71,11 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
         }
     };
 
-    // Get subscriptions from database
-    const { data: subscriptions = [], isLoading } = useActiveSubscriptions();
+    const monthKey = toMonthKey(currentMonth);
+    const { data: snapshot, isLoading, error } = useMonthlySnapshot(monthKey);
 
     // Calculate calendar grid for the current month
-    const { calendarDays, startDate, endDate } = useMemo(() => {
+    const calendarDays = useMemo(() => {
         const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
         const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
 
@@ -177,22 +97,16 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
         }
 
         const days: Date[] = [];
-        let d = new Date(start);
+        const d = new Date(start);
         while (d <= end) {
             days.push(new Date(d));
             d.setDate(d.getDate() + 1);
         }
 
-        return { calendarDays: days, startDate: start, endDate: end };
+        return days;
     }, [currentMonth]);
 
-    // Generate events from subscriptions
-    const allEvents = useMemo(() => {
-        // Calculate total days between start and end
-        if (!startDate || !endDate) return [];
-        const daysCount = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        return generateEventsForDateRange(subscriptions, startDate, daysCount);
-    }, [subscriptions, startDate, endDate]);
+    const allEvents = useMemo(() => snapshot?.items ?? [], [snapshot?.items]);
 
     // Map days to DayData with filtered events
     const daysData = useMemo(() => {
@@ -329,14 +243,25 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                         <div className="flex h-full items-center justify-center">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
-                    ) : subscriptions.length === 0 ? (
+                    ) : error ? (
+                        <div className="flex h-full items-center justify-center text-destructive">
+                            Snapshot yüklenemedi: {String(error)}
+                        </div>
+                    ) : snapshot === null ? (
+                        <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                            <p className="font-medium">Bu ay için kayıtlı snapshot bulunmuyor.</p>
+                            <p className="max-w-md text-sm text-muted-foreground">
+                                Snapshot özelliği etkinleştirilmeden önceki ayların içeriği geriye dönük tahmin edilmez.
+                            </p>
+                        </div>
+                    ) : allEvents.length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center gap-4">
                             <p className="text-muted-foreground">
-                                Henüz abonelik eklenmemiş. Başlamak için yeni bir abonelik ekleyin.
+                                Bu ay için ödeme veya harcama kaydı yok.
                             </p>
                             <Button onClick={onNewSubscription}>
                                 <Plus className="h-4 w-4" />
-                                İlk Aboneliği Ekle
+                                İlk Kaydı Ekle
                             </Button>
                         </div>
                     ) : (
@@ -361,6 +286,7 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                 onClose={() => setSelectedDate(null)}
                 dayData={selectedDayData ?? null}
                 onNewSubscription={onNewSubscription}
+                isReadOnly={monthKey < toMonthKey(new Date())}
             />
         </div>
     );

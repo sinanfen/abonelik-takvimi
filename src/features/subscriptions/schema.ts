@@ -14,6 +14,13 @@ export const categories = [
     { value: 'SaaS', label: 'SaaS', color: '#34D399' },
     { value: 'Insurance', label: 'Sigorta', color: '#FB7185' },
     { value: 'Shopping', label: 'Alışveriş', color: '#F97316' },
+    { value: 'Housing', label: 'Kira & Konut', color: '#F43F5E' },
+    { value: 'Utilities', label: 'Elektrik, Su & Doğalgaz', color: '#EAB308' },
+    { value: 'Telecom', label: 'İnternet & Telefon', color: '#06B6D4' },
+    { value: 'Transportation', label: 'Ulaşım', color: '#14B8A6' },
+    { value: 'Health', label: 'Sağlık', color: '#EC4899' },
+    { value: 'Education', label: 'Eğitim', color: '#8B5CF6' },
+    { value: 'Food', label: 'Market & Yemek', color: '#84CC16' },
     { value: 'Other', label: 'Diğer', color: '#94A3B8' },
 ] as const;
 
@@ -21,6 +28,11 @@ export const frequencies = [
     { value: 'monthly', label: 'Aylık' },
     { value: 'weekly', label: 'Haftalık' },
     { value: 'yearly', label: 'Yıllık' },
+] as const;
+
+export const recurrenceTypes = [
+    { value: 'recurring', label: 'Tekrar eden' },
+    { value: 'one_time', label: 'Tek seferlik' },
 ] as const;
 
 export const reminderOptions = [
@@ -31,13 +43,14 @@ export const reminderOptions = [
 ] as const;
 
 export const subscriptionFormSchema = z.object({
-    name: z.string().min(1, 'Abonelik adı zorunludur'),
+    name: z.string().min(1, 'Kayıt adı zorunludur'),
     type: z.enum(['subscription', 'credit_card', 'bill', 'other'], {
         required_error: 'Tür seçimi zorunludur',
     }),
-    category: z.enum(['Banking', 'Entertainment', 'Bills', 'SaaS', 'Insurance', 'Shopping', 'Other'], {
+    category: z.enum(['Banking', 'Entertainment', 'Bills', 'SaaS', 'Insurance', 'Shopping', 'Housing', 'Utilities', 'Telecom', 'Transportation', 'Health', 'Education', 'Food', 'Other'], {
         required_error: 'Kategori seçimi zorunludur',
     }),
+    recurrenceType: z.enum(['recurring', 'one_time']).default('recurring'),
     frequency: z.enum(['monthly', 'weekly', 'yearly'], {
         required_error: 'Tekrar sıklığı seçimi zorunludur',
     }),
@@ -46,23 +59,41 @@ export const subscriptionFormSchema = z.object({
         .min(1, 'Gün 1-31 arasında olmalı')
         .max(31, 'Gün 1-31 arasında olmalı')
         .optional(),
-    amount: z.coerce.number().min(0).optional(),
+    amount: z.preprocess(
+        (value) => value === '' ? undefined : value,
+        z.coerce.number().min(0).optional(),
+    ),
     currency: z.string().default('TRY'),
     paymentMethod: z.string().optional(),
     reminders: z.array(z.number()).default([1]),
     notes: z.string().optional(),
+    startDate: z.string().min(1, 'Tarih zorunludur'),
+    endDate: z.string().optional(),
     // Credit card specific fields
     statementDay: z.coerce.number().min(1).max(31).optional(),
     dueDay: z.coerce.number().min(1).max(31).optional(),
+}).superRefine((data, ctx) => {
+    if (data.endDate && data.endDate < data.startDate) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['endDate'],
+            message: 'Bitiş tarihi başlangıçtan önce olamaz',
+        });
+    }
 });
 
 export type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
+
+const today = new Date();
+const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
 export const defaultFormValues: Partial<SubscriptionFormData> = {
     type: 'subscription',
     category: 'Other',
     frequency: 'monthly',
+    recurrenceType: 'recurring',
     dayOfMonth: new Date().getDate(),
+    startDate: todayKey,
     currency: 'TRY',
     reminders: [1],
 };

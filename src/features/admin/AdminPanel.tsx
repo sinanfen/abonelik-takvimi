@@ -51,8 +51,10 @@ import {
     useCreateSubscription,
     useMoveSubscription,
 } from '@/features/subscriptions';
-import type { Category, SubscriptionType, Subscription } from '@/types';
+import { categories } from '@/features/subscriptions/schema';
+import type { SubscriptionType, Subscription } from '@/types';
 import { SummaryDialog } from './SummaryDialog';
+import { getNextPaymentDate } from '@/lib/subscriptionUtils';
 
 const TYPE_LABELS: Record<SubscriptionType, string> = {
     subscription: 'Abonelik',
@@ -61,28 +63,7 @@ const TYPE_LABELS: Record<SubscriptionType, string> = {
     other: 'Diğer',
 };
 
-const CATEGORY_LABELS: Record<Category, string> = {
-    Banking: 'Bankacılık',
-    Entertainment: 'Eğlence',
-    Bills: 'Faturalar',
-    SaaS: 'SaaS',
-    Insurance: 'Sigorta',
-    Shopping: 'Alışveriş',
-    Other: 'Diğer',
-};
-
-const CATEGORY_BADGE_VARIANTS: Record<
-    Category,
-    'banking' | 'entertainment' | 'bills' | 'saas' | 'insurance' | 'shopping' | 'other'
-> = {
-    Banking: 'banking',
-    Entertainment: 'entertainment',
-    Bills: 'bills',
-    SaaS: 'saas',
-    Insurance: 'insurance',
-    Shopping: 'shopping',
-    Other: 'other',
-};
+const CATEGORY_META = new Map(categories.map((category) => [category.value, category]));
 
 interface AdminPanelProps {
     onNewSubscription: () => void;
@@ -124,6 +105,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
             const success = await backupService.importData();
             if (success) {
                 queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+                queryClient.invalidateQueries({ queryKey: ['snapshots'] });
             }
         } catch (error) {
             console.error('Import failed:', error);
@@ -161,20 +143,9 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
         }
     };
 
-    const getNextPaymentDate = (sub: Subscription) => {
-        // Simple calculation - in real app this would use the recurrence engine
-        const today = new Date();
-        const dayOfMonth = sub.recurrence.dayOfMonth || 1;
-        const nextDate = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
-        if (nextDate < today) {
-            nextDate.setMonth(nextDate.getMonth() + 1);
-        }
-        return nextDate;
-    };
-
     // Filter and Sort subscriptions
     const processedSubscriptions = useMemo(() => {
-        let result = subscriptions.filter((sub) => {
+        const result = subscriptions.filter((sub) => {
             // Search filter
             if (searchQuery && !sub.name.toLowerCase().includes(searchQuery.toLowerCase())) {
                 return false;
@@ -192,12 +163,18 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
 
         // Sort
         result.sort((a, b) => {
-            let valA: any = a[sortColumn as keyof Subscription];
-            let valB: any = b[sortColumn as keyof Subscription];
+            const normalizeSortValue = (value: unknown): string | number => {
+                if (value instanceof Date) return value.getTime();
+                if (typeof value === 'number' || typeof value === 'string') return value;
+                if (typeof value === 'boolean') return value ? 1 : 0;
+                return '';
+            };
+            let valA = normalizeSortValue(a[sortColumn as keyof Subscription]);
+            let valB = normalizeSortValue(b[sortColumn as keyof Subscription]);
 
             if (sortColumn === 'nextDate') {
-                valA = getNextPaymentDate(a).getTime();
-                valB = getNextPaymentDate(b).getTime();
+                valA = getNextPaymentDate(a)?.getTime() ?? Number.POSITIVE_INFINITY;
+                valB = getNextPaymentDate(b)?.getTime() ?? Number.POSITIVE_INFINITY;
             } else if (sortColumn === 'sortOrder') {
                 // If sortOrder is undefined/null, treat as 0
                 valA = a.sortOrder ?? 0;
@@ -221,7 +198,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
         }
     };
 
-    const formatDate = (date: Date | undefined) => {
+    const formatDate = (date: Date | null | undefined) => {
         if (!date) return '-';
         return date.toLocaleDateString('tr-TR', {
             day: 'numeric',
@@ -264,6 +241,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                 type: sub.type,
                 category: sub.category,
                 frequency: sub.recurrence.frequency,
+                recurrenceType: sub.recurrenceType,
                 dayOfMonth: sub.recurrence.dayOfMonth,
                 amount: sub.amount,
                 currency: sub.currency,
@@ -272,6 +250,8 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                 statementDay: sub.statementDay,
                 dueDay: sub.dueDay,
                 reminders: sub.reminders,
+                startDate: sub.startDate,
+                endDate: sub.endDate,
                 sortOrder: (sub.sortOrder ?? 0) + 1, // Place next to original? Or rely on default? Let's relying on default logic is better, but here we explicitly set it.
             });
         } catch (error) {
@@ -348,9 +328,9 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Tüm Kategoriler</SelectItem>
-                        {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                                {label}
+                        {categories.map((category) => (
+                            <SelectItem key={category.value} value={category.value}>
+                                {category.label}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -366,7 +346,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                 </Button>
 
                 <div className="ml-auto text-sm text-muted-foreground">
-                    {processedSubscriptions.length} abonelik
+                    {processedSubscriptions.length} kayıt
                 </div>
             </div>
 
@@ -396,6 +376,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                                 <TableHead onClick={() => handleSort('nextDate')} className="cursor-pointer hover:text-foreground">
                                     Sonraki Tarih <SortIcon column="nextDate" />
                                 </TableHead>
+                                <TableHead>Tekrar</TableHead>
                                 <TableHead onClick={() => handleSort('amount')} className="cursor-pointer hover:text-foreground">
                                     Tutar <SortIcon column="amount" />
                                 </TableHead>
@@ -408,7 +389,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                         <TableBody>
                             {processedSubscriptions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={9} className="h-24 text-center">
+                                    <TableCell colSpan={10} className="h-24 text-center">
                                         <p className="text-muted-foreground">
                                             {subscriptions.length === 0
                                                 ? 'Henüz kayıt eklenmemiş. "Yeni Kayıt" butonuna tıklayarak başlayın.'
@@ -449,11 +430,26 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                                         <TableCell className="font-medium">{sub.name}</TableCell>
                                         <TableCell>{TYPE_LABELS[sub.type]}</TableCell>
                                         <TableCell>
-                                            <Badge variant={CATEGORY_BADGE_VARIANTS[sub.category]}>
-                                                {CATEGORY_LABELS[sub.category]}
+                                            <Badge
+                                                variant="outline"
+                                                style={{
+                                                    color: CATEGORY_META.get(sub.category)?.color,
+                                                    borderColor: `${CATEGORY_META.get(sub.category)?.color ?? '#94A3B8'}66`,
+                                                }}
+                                            >
+                                                {CATEGORY_META.get(sub.category)?.label ?? sub.category}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{formatDate(getNextPaymentDate(sub))}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary">
+                                                {sub.recurrenceType === 'one_time'
+                                                    ? 'Tek seferlik'
+                                                    : sub.endDate
+                                                        ? 'Süreli'
+                                                        : 'Sürekli'}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell>{formatAmount(sub.amount, sub.currency)}</TableCell>
                                         <TableCell>
                                             <Badge variant={sub.isActive ? 'default' : 'secondary'}>

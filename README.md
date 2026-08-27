@@ -7,11 +7,14 @@ Modern, performant ve kullanıcı dostu bir masaüstü abonelik takip uygulamas�
 ## 🚀 Özellikler
 
 - **Abonelik Yönetimi**: Netflix, Spotify, AWS gibi aboneliklerinizi ekleyin, düzenleyin ve kategorize edin.
+- **Esnek Tekrar Kuralları**: Tek seferlik harcamaları, süreli abonelikleri ve süresiz tekrar eden ödemeleri ayrı ayrı takip edin.
+- **Aylık Snapshot & Geçmiş**: Her ayın ödeme kayıtlarını bağımsız bir snapshot olarak saklayın; sonraki düzenlemeler geçmiş ayları değiştirmez.
+- **Geniş Kategori Seti**: Kira ve konuttan telekom, ulaşıma, sağlığa ve eğitime kadar ayrıntılı filtreleme kullanın.
 - **Akıllı Takvim Görünümü**: Aylık ödemelerinizi takvim üzerinde görselleştirin.
 - **Masaüstü Bildirimleri**: Ödeme günü yaklaşan abonelikler için Windows masaüstü bildirimi alın.
 - **Karanlık & Aydınlık Mod**: Sistem temanıza uyumlu veya manuel olarak değiştirilebilir modern arayüz.
 - **Detaylı Analiz**: Aylık toplam harcamanızı ve yaklaşan ödemelerinizi anlık görün.
-- **Güvenli & Yerel**: Tüm verileriniz yerel cihazınızda (SQLite) şifreli olarak saklanır. Buluta veri göndermez.
+- **Güvenli & Yerel**: Tüm verileriniz yerel cihazınızdaki SQLite veritabanında saklanır; uygulama buluta veri göndermez.
 - **Yedekleme**: Verilerinizi JSON formatında dışa aktarın ve geri yükleyin.
 
 ## 🛠️ Teknolojiler

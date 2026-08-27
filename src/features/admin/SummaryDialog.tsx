@@ -9,6 +9,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { Subscription, Category } from '@/types';
 import { PieChart as PieChartIcon, Wallet, CreditCard, BarChart3 } from 'lucide-react';
+import { categories } from '@/features/subscriptions/schema';
 
 interface SummaryDialogProps {
     isOpen: boolean;
@@ -16,33 +17,18 @@ interface SummaryDialogProps {
     subscriptions: Subscription[];
 }
 
-const CATEGORY_LABELS: Record<Category, string> = {
-    Banking: 'Bankacılık',
-    Entertainment: 'Eğlence',
-    Bills: 'Faturalar',
-    SaaS: 'SaaS',
-    Insurance: 'Sigorta',
-    Shopping: 'Alışveriş',
-    Other: 'Diğer',
-};
-
-const CATEGORY_COLORS: Record<Category, string> = {
-    Banking: '#3b82f6', // blue-500
-    Entertainment: '#a855f7', // purple-500
-    Bills: '#ef4444', // red-500
-    SaaS: '#6366f1', // indigo-500
-    Insurance: '#22c55e', // green-500
-    Shopping: '#ec4899', // pink-500
-    Other: '#6b7280', // gray-500
-};
+const CATEGORY_META = new Map(categories.map((category) => [category.value, category]));
 
 export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogProps) {
     const stats = useMemo(() => {
-        const activeSubs = subscriptions.filter(sub => sub.isActive);
+        const today = new Date();
+        const activeSubs = subscriptions.filter(sub =>
+            sub.isActive && (!sub.endDate || sub.endDate >= today),
+        );
         const byCurrency: Record<string, { total: number; byCategory: Record<string, number> }> = {};
 
         activeSubs.forEach(sub => {
-            if (!sub.amount) return;
+            if (!sub.amount || sub.recurrenceType === 'one_time') return;
 
             const currency = sub.currency || 'TRY';
             if (!byCurrency[currency]) {
@@ -96,7 +82,7 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                     return {
                         category,
                         path: `M 1 0 A 1 1 0 1 1 -1 0 A 1 1 0 1 1 1 0`,
-                        color: CATEGORY_COLORS[category as Category],
+                        color: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8',
                         percent
                     };
                 }
@@ -107,7 +93,7 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                 return {
                     category,
                     path: pathData,
-                    color: CATEGORY_COLORS[category as Category],
+                    color: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8',
                     percent
                 };
             });
@@ -173,9 +159,9 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                                                 <span className="font-medium flex items-center gap-2">
                                                                     <div
                                                                         className="w-3 h-3 rounded-full"
-                                                                        style={{ backgroundColor: CATEGORY_COLORS[category as Category] }}
+                                                                        style={{ backgroundColor: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8' }}
                                                                     />
-                                                                    {CATEGORY_LABELS[category as Category]}
+                                                                    {CATEGORY_META.get(category as Category)?.label ?? category}
                                                                 </span>
                                                                 <span className="font-medium">{formatAmount(amount, currency)}</span>
                                                             </div>
@@ -184,7 +170,7 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                                                     className="h-full rounded-full transition-all duration-1000 ease-out"
                                                                     style={{
                                                                         width: `${(amount / maxAmount) * 100}%`,
-                                                                        backgroundColor: CATEGORY_COLORS[category as Category]
+                                                                        backgroundColor: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8'
                                                                     }}
                                                                 />
                                                             </div>
@@ -212,7 +198,7 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                                                 fill={slice.color}
                                                                 className="hover:opacity-80 transition-opacity cursor-pointer stroke-background stroke-[0.02]"
                                                             >
-                                                                <title>{`${CATEGORY_LABELS[slice.category as Category]}: ${formatAmount(currencyData.byCategory[slice.category], currency)}`}</title>
+                                                                <title>{`${CATEGORY_META.get(slice.category as Category)?.label ?? slice.category}: ${formatAmount(currencyData.byCategory[slice.category], currency)}`}</title>
                                                             </path>
                                                         ))}
                                                         {/* Center Hole for Donut Chart effect */}
@@ -235,10 +221,10 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                                         >
                                                             <div
                                                                 className="w-2 h-2 rounded-full"
-                                                                style={{ backgroundColor: CATEGORY_COLORS[category as Category] }}
+                                                                style={{ backgroundColor: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8' }}
                                                             />
                                                             <span className="text-xs text-muted-foreground">
-                                                                {CATEGORY_LABELS[category as Category]}
+                                                                {CATEGORY_META.get(category as Category)?.label ?? category}
                                                             </span>
                                                         </Badge>
                                                     ))}

@@ -5,6 +5,12 @@ import {
     type UpdateSubscriptionInput,
 } from './repository';
 import type { Category } from '@/types';
+import { snapshotRepository, snapshotKeys } from '@/features/snapshots';
+
+async function refreshSnapshots(queryClient: ReturnType<typeof useQueryClient>) {
+    await snapshotRepository.refreshRollingSnapshots();
+    await queryClient.invalidateQueries({ queryKey: snapshotKeys.all });
+}
 
 // Query keys
 export const subscriptionKeys = {
@@ -54,8 +60,9 @@ export function useCreateSubscription() {
     return useMutation({
         mutationFn: (input: CreateSubscriptionInput) =>
             subscriptionRepository.create(input),
-        onSuccess: () => {
+        onSuccess: async () => {
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+            await refreshSnapshots(queryClient);
         },
     });
 }
@@ -66,10 +73,11 @@ export function useUpdateSubscription() {
     return useMutation({
         mutationFn: ({ id, input }: { id: string; input: UpdateSubscriptionInput }) =>
             subscriptionRepository.update(id, input),
-        onSuccess: (_, { id }) => {
+        onSuccess: async (_, { id }) => {
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.detail(id) });
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.lists() });
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.active() });
+            await refreshSnapshots(queryClient);
         },
     });
 }
@@ -79,10 +87,11 @@ export function useToggleSubscriptionActive() {
 
     return useMutation({
         mutationFn: (id: string) => subscriptionRepository.toggleActive(id),
-        onSuccess: (_, id) => {
+        onSuccess: async (_, id) => {
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.detail(id) });
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.lists() });
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.active() });
+            await refreshSnapshots(queryClient);
         },
     });
 }
@@ -92,8 +101,9 @@ export function useDeleteSubscription() {
 
     return useMutation({
         mutationFn: (id: string) => subscriptionRepository.delete(id),
-        onSuccess: () => {
+        onSuccess: async () => {
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+            await refreshSnapshots(queryClient);
         },
     });
 }
@@ -112,8 +122,9 @@ export function useMoveSubscription() {
     return useMutation({
         mutationFn: ({ id, targetId, position }: { id: string; targetId: string; position: 'before' | 'after' }) =>
             subscriptionRepository.move(id, targetId, position),
-        onSuccess: () => {
+        onSuccess: async () => {
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+            await refreshSnapshots(queryClient);
         },
     });
 }

@@ -54,7 +54,15 @@ jobs:
         with:
           tagName: v${{ github.run_number }}
           releaseName: 'Build v${{ github.run_number }}'
-          releaseBody: 'Automated release triggered by push.'
+          releaseBody: |
+            Abonelik Takvimi 0.3.0
+
+            - Tek seferlik, süreli ve sürekli tekrar eden kayıtlar
+            - Aylık snapshot ve geçmiş ekranı
+            - Genişletilmiş harcama kategorileri
+            - Snapshot içeren sürümlü yedekleme
+
+            Kurulum için aşağıdaki Windows .exe/.msi, macOS .dmg veya Linux paketlerinden uygun olanı indirin.
           releaseDraft: false
           prerelease: true
 
