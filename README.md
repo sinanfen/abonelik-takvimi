@@ -11,10 +11,13 @@ Modern, performant ve kullanıcı dostu bir masaüstü abonelik takip uygulamas�
 - **Aylık Snapshot & Geçmiş**: Her ayın ödeme kayıtlarını bağımsız bir snapshot olarak saklayın; sonraki düzenlemeler geçmiş ayları değiştirmez.
 - **Geniş Kategori Seti**: Kira ve konuttan telekom, ulaşıma, sağlığa ve eğitime kadar ayrıntılı filtreleme kullanın.
 - **Akıllı Takvim Görünümü**: Aylık ödemelerinizi takvim üzerinde görselleştirin.
-- **Masaüstü Bildirimleri**: Ödeme günü yaklaşan abonelikler için Windows masaüstü bildirimi alın.
+- **Manuel Ödeme Takibi**: Aylık kayıtları ödenmedi, ödendi veya atlandı olarak işaretleyin; durum geçmiş snapshot'larda korunsun.
+- **Otomatik Ödeme Talimatı**: Bir kaydın manuel mi otomatik talimatla mı ödendiğini belirtin ve uygun kontrol hatırlatması alın.
+- **Opsiyonel E-posta Hatırlatmaları**: Gmail üzerinden, uygulama açıkken yaklaşan ödemeleri doğrudan kendi hesabınızdan gönderin.
 - **Karanlık & Aydınlık Mod**: Sistem temanıza uyumlu veya manuel olarak değiştirilebilir modern arayüz.
 - **Detaylı Analiz**: Aylık toplam harcamanızı ve yaklaşan ödemelerinizi anlık görün.
-- **Güvenli & Yerel**: Tüm verileriniz yerel cihazınızdaki SQLite veritabanında saklanır; uygulama buluta veri göndermez.
+- **Güvenli & Yerel**: Tüm verileriniz yerel cihazınızdaki SQLite veritabanında saklanır. Varsayılan olarak ağ üzerinden veri gönderilmez; e-posta hatırlatmaları yalnızca siz etkinleştirirseniz ödeme adı, tarih ve tutarı seçtiğiniz e-posta sağlayıcısına iletir.
+- **Aracısız E-posta**: E-posta için uygulamaya ait bir sunucu kullanılmaz. SMTP uygulama şifresi SQLite'a veya tarayıcı depolamasına yazılmaz; işletim sisteminin kimlik kasasında tutulur.
 - **Yedekleme**: Verilerinizi JSON formatında dışa aktarın ve geri yükleyin.
 
 ## 🛠️ Teknolojiler
@@ -33,6 +36,8 @@ Bu proje, modern web teknolojilerini native performans ile birleştirir:
 En güncel sürümü **Releases** sayfasından indirebilirsiniz.
 
 - **Windows**: `.msi` veya `.exe` dosyasını indirip kurun.
+- **macOS**: `.dmg` dosyasını indirip uygulamayı Applications klasörüne taşıyın.
+- **Linux**: `.AppImage` veya `.deb` paketlerinden dağıtımınıza uygun olanı kullanın.
 
 ## 💻 Geliştirme (Development)
 

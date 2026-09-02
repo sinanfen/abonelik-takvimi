@@ -35,6 +35,11 @@ export const recurrenceTypes = [
     { value: 'one_time', label: 'Tek seferlik' },
 ] as const;
 
+export const paymentModes = [
+    { value: 'manual', label: 'Manuel ödeme' },
+    { value: 'automatic', label: 'Otomatik ödeme talimatı' },
+] as const;
+
 export const reminderOptions = [
     { value: 7, label: '7 gün önce' },
     { value: 3, label: '3 gün önce' },
@@ -42,45 +47,59 @@ export const reminderOptions = [
     { value: 0, label: 'Aynı gün' },
 ] as const;
 
-export const subscriptionFormSchema = z.object({
-    name: z.string().min(1, 'Kayıt adı zorunludur'),
-    type: z.enum(['subscription', 'credit_card', 'bill', 'other'], {
-        required_error: 'Tür seçimi zorunludur',
-    }),
-    category: z.enum(['Banking', 'Entertainment', 'Bills', 'SaaS', 'Insurance', 'Shopping', 'Housing', 'Utilities', 'Telecom', 'Transportation', 'Health', 'Education', 'Food', 'Other'], {
-        required_error: 'Kategori seçimi zorunludur',
-    }),
-    recurrenceType: z.enum(['recurring', 'one_time']).default('recurring'),
-    frequency: z.enum(['monthly', 'weekly', 'yearly'], {
-        required_error: 'Tekrar sıklığı seçimi zorunludur',
-    }),
-    dayOfMonth: z.coerce
-        .number()
-        .min(1, 'Gün 1-31 arasında olmalı')
-        .max(31, 'Gün 1-31 arasında olmalı')
-        .optional(),
-    amount: z.preprocess(
-        (value) => value === '' ? undefined : value,
-        z.coerce.number().min(0).optional(),
-    ),
-    currency: z.string().default('TRY'),
-    paymentMethod: z.string().optional(),
-    reminders: z.array(z.number()).default([1]),
-    notes: z.string().optional(),
-    startDate: z.string().min(1, 'Tarih zorunludur'),
-    endDate: z.string().optional(),
-    // Credit card specific fields
-    statementDay: z.coerce.number().min(1).max(31).optional(),
-    dueDay: z.coerce.number().min(1).max(31).optional(),
-}).superRefine((data, ctx) => {
-    if (data.endDate && data.endDate < data.startDate) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['endDate'],
-            message: 'Bitiş tarihi başlangıçtan önce olamaz',
-        });
-    }
-});
+export const subscriptionFormSchema = z
+    .object({
+        name: z.string().min(1, 'Kayıt adı zorunludur'),
+        type: z.enum(['subscription', 'credit_card', 'bill', 'other'], {
+            required_error: 'Tür seçimi zorunludur',
+        }),
+        category: z.enum(
+            [
+                'Banking',
+                'Entertainment',
+                'Bills',
+                'SaaS',
+                'Insurance',
+                'Shopping',
+                'Housing',
+                'Utilities',
+                'Telecom',
+                'Transportation',
+                'Health',
+                'Education',
+                'Food',
+                'Other',
+            ],
+            {
+                required_error: 'Kategori seçimi zorunludur',
+            },
+        ),
+        recurrenceType: z.enum(['recurring', 'one_time']).default('recurring'),
+        paymentMode: z.enum(['manual', 'automatic']).default('manual'),
+        frequency: z.enum(['monthly', 'weekly', 'yearly'], {
+            required_error: 'Tekrar sıklığı seçimi zorunludur',
+        }),
+        dayOfMonth: z.coerce.number().min(1, 'Gün 1-31 arasında olmalı').max(31, 'Gün 1-31 arasında olmalı').optional(),
+        amount: z.preprocess((value) => (value === '' ? undefined : value), z.coerce.number().min(0).optional()),
+        currency: z.string().default('TRY'),
+        paymentMethod: z.string().optional(),
+        reminders: z.array(z.number()).default([1]),
+        notes: z.string().optional(),
+        startDate: z.string().min(1, 'Tarih zorunludur'),
+        endDate: z.string().optional(),
+        // Credit card specific fields
+        statementDay: z.coerce.number().min(1).max(31).optional(),
+        dueDay: z.coerce.number().min(1).max(31).optional(),
+    })
+    .superRefine((data, ctx) => {
+        if (data.endDate && data.endDate < data.startDate) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['endDate'],
+                message: 'Bitiş tarihi başlangıçtan önce olamaz',
+            });
+        }
+    });
 
 export type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
 
@@ -92,6 +111,7 @@ export const defaultFormValues: Partial<SubscriptionFormData> = {
     category: 'Other',
     frequency: 'monthly',
     recurrenceType: 'recurring',
+    paymentMode: 'manual',
     dayOfMonth: new Date().getDate(),
     startDate: todayKey,
     currency: 'TRY',

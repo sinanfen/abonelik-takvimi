@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Archive, CalendarDays, Loader2, ReceiptText } from 'lucide-react';
+import { Archive, CalendarDays, CheckCircle2, Clock3, Loader2, ReceiptText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,9 @@ export function HistoryView() {
         [selectedMonth, snapshots],
     );
     const currentMonth = toMonthKey(new Date());
+    const paymentItems = selected?.items.filter((item) => item.kind === 'payment' || item.kind === 'due') ?? [];
+    const paidCount = paymentItems.filter((item) => item.status === 'done').length;
+    const waitingCount = paymentItems.filter((item) => item.status === 'planned').length;
 
     if (isLoading) {
         return (
@@ -120,19 +123,41 @@ export function HistoryView() {
                             </p>
                         </div>
 
-                        <div className="grid gap-4 md:grid-cols-3">
+                        <div className="grid gap-4 md:grid-cols-4">
                             <Card>
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-medium text-muted-foreground">Kayıt sayısı</CardTitle>
+                                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                                        Kayıt sayısı
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent className="text-2xl font-semibold">{selected.items.length}</CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                        <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Ödendi
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="text-2xl font-semibold">{paidCount}</CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                        <Clock3 className="h-4 w-4 text-amber-500" /> Bekliyor
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="text-2xl font-semibold">{waitingCount}</CardContent>
                             </Card>
                             {groupTotals(selected).map(([currency, total]) => (
                                 <Card key={currency}>
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium text-muted-foreground">Toplam · {currency}</CardTitle>
+                                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                                            Toplam · {currency}
+                                        </CardTitle>
                                     </CardHeader>
-                                    <CardContent className="text-2xl font-semibold">{formatAmount(total, currency)}</CardContent>
+                                    <CardContent className="text-2xl font-semibold">
+                                        {formatAmount(total, currency)}
+                                    </CardContent>
                                 </Card>
                             ))}
                         </div>
@@ -146,7 +171,9 @@ export function HistoryView() {
                             </CardHeader>
                             <CardContent>
                                 {selected.items.length === 0 ? (
-                                    <p className="py-8 text-center text-sm text-muted-foreground">Bu ay için kayıt yok.</p>
+                                    <p className="py-8 text-center text-sm text-muted-foreground">
+                                        Bu ay için kayıt yok.
+                                    </p>
                                 ) : (
                                     <div className="divide-y divide-border">
                                         {selected.items.map((item) => {
@@ -154,18 +181,43 @@ export function HistoryView() {
                                             return (
                                                 <div key={item.id} className="flex items-center gap-4 py-3">
                                                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                                                        <CalendarDays className="h-4 w-4" style={{ color: meta?.color }} />
+                                                        <CalendarDays
+                                                            className="h-4 w-4"
+                                                            style={{ color: meta?.color }}
+                                                        />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
                                                         <p className="truncate text-sm font-medium">{item.title}</p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            {format(item.date, 'd MMMM', { locale: tr })} · {meta?.label ?? item.category}
+                                                            {format(item.date, 'd MMMM', { locale: tr })} ·{' '}
+                                                            {meta?.label ?? item.category}
                                                         </p>
                                                     </div>
                                                     {item.amount !== undefined && (
                                                         <span className="text-sm font-semibold">
                                                             {formatAmount(item.amount, item.currency)}
                                                         </span>
+                                                    )}
+                                                    {(item.kind === 'payment' || item.kind === 'due') && (
+                                                        <Badge
+                                                            variant={
+                                                                item.status === 'done'
+                                                                    ? 'default'
+                                                                    : item.status === 'skipped'
+                                                                      ? 'secondary'
+                                                                      : 'outline'
+                                                            }
+                                                            className={cn(
+                                                                item.status === 'done' &&
+                                                                    'bg-emerald-600 hover:bg-emerald-600',
+                                                            )}
+                                                        >
+                                                            {item.status === 'done'
+                                                                ? 'Ödendi'
+                                                                : item.status === 'skipped'
+                                                                  ? 'Atlandı'
+                                                                  : 'Ödenmedi'}
+                                                        </Badge>
                                                     )}
                                                 </div>
                                             );

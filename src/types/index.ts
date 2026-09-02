@@ -18,6 +18,8 @@ export type Category =
     | 'Other';
 
 export type RecurrenceType = 'recurring' | 'one_time';
+export type PaymentMode = 'manual' | 'automatic';
+export type PaymentStatus = 'planned' | 'done' | 'skipped';
 
 export type EventKind = 'payment' | 'statement' | 'due' | 'reminder';
 
@@ -35,14 +37,15 @@ export interface Subscription {
     category: Category;
     recurrence: RecurrenceRule;
     recurrenceType: RecurrenceType;
+    paymentMode: PaymentMode;
     amount?: number;
     currency: string;
     paymentMethod?: string;
     reminders: number[];
     isActive: boolean;
     notes?: string;
-    statementDay?: number;  // For credit cards
-    dueDay?: number;        // For credit cards
+    statementDay?: number; // For credit cards
+    dueDay?: number; // For credit cards
     startDate?: Date;
     endDate?: Date;
     createdAt: Date;
@@ -61,7 +64,7 @@ export interface SubscriptionEvent {
     currency: string;
     subscriptionType: SubscriptionType;
     notes?: string;
-    status?: 'planned' | 'done' | 'skipped';
+    status?: PaymentStatus;
     sortOrder?: number;
 }
 

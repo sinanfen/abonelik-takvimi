@@ -20,21 +20,8 @@ import { backupService } from '@/lib/backup';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     Dialog,
     DialogContent,
@@ -124,7 +111,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
 
     const handleMove = async (sub: Subscription, direction: 'up' | 'down') => {
         // Find in visible list
-        const currentIndex = processedSubscriptions.findIndex(s => s.id === sub.id);
+        const currentIndex = processedSubscriptions.findIndex((s) => s.id === sub.id);
         if (currentIndex === -1) return;
 
         const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
@@ -136,10 +123,10 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
             await moveSubscription.mutateAsync({
                 id: sub.id,
                 targetId: targetSub.id,
-                position: direction === 'up' ? 'before' : 'after'
+                position: direction === 'up' ? 'before' : 'after',
             });
         } catch (error) {
-            console.error("Failed to move subscription", error);
+            console.error('Failed to move subscription', error);
         }
     };
 
@@ -242,6 +229,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                 category: sub.category,
                 frequency: sub.recurrence.frequency,
                 recurrenceType: sub.recurrenceType,
+                paymentMode: sub.paymentMode,
                 dayOfMonth: sub.recurrence.dayOfMonth,
                 amount: sub.amount,
                 currency: sub.currency,
@@ -345,9 +333,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                     Pasifleri Göster
                 </Button>
 
-                <div className="ml-auto text-sm text-muted-foreground">
-                    {processedSubscriptions.length} kayıt
-                </div>
+                <div className="ml-auto text-sm text-muted-foreground">{processedSubscriptions.length} kayıt</div>
             </div>
 
             {/* Table */}
@@ -361,26 +347,48 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]"></TableHead>
-                                <TableHead onClick={() => handleSort('sortOrder')} className="cursor-pointer hover:text-foreground">
+                                <TableHead
+                                    onClick={() => handleSort('sortOrder')}
+                                    className="cursor-pointer hover:text-foreground"
+                                >
                                     # <SortIcon column="sortOrder" />
                                 </TableHead>
-                                <TableHead onClick={() => handleSort('name')} className="cursor-pointer hover:text-foreground">
+                                <TableHead
+                                    onClick={() => handleSort('name')}
+                                    className="cursor-pointer hover:text-foreground"
+                                >
                                     Ad <SortIcon column="name" />
                                 </TableHead>
-                                <TableHead onClick={() => handleSort('type')} className="cursor-pointer hover:text-foreground">
+                                <TableHead
+                                    onClick={() => handleSort('type')}
+                                    className="cursor-pointer hover:text-foreground"
+                                >
                                     Tür <SortIcon column="type" />
                                 </TableHead>
-                                <TableHead onClick={() => handleSort('category')} className="cursor-pointer hover:text-foreground">
+                                <TableHead
+                                    onClick={() => handleSort('category')}
+                                    className="cursor-pointer hover:text-foreground"
+                                >
                                     Kategori <SortIcon column="category" />
                                 </TableHead>
-                                <TableHead onClick={() => handleSort('nextDate')} className="cursor-pointer hover:text-foreground">
+                                <TableHead
+                                    onClick={() => handleSort('nextDate')}
+                                    className="cursor-pointer hover:text-foreground"
+                                >
                                     Sonraki Tarih <SortIcon column="nextDate" />
                                 </TableHead>
                                 <TableHead>Tekrar</TableHead>
-                                <TableHead onClick={() => handleSort('amount')} className="cursor-pointer hover:text-foreground">
+                                <TableHead>Ödeme</TableHead>
+                                <TableHead
+                                    onClick={() => handleSort('amount')}
+                                    className="cursor-pointer hover:text-foreground"
+                                >
                                     Tutar <SortIcon column="amount" />
                                 </TableHead>
-                                <TableHead onClick={() => handleSort('isActive')} className="cursor-pointer hover:text-foreground">
+                                <TableHead
+                                    onClick={() => handleSort('isActive')}
+                                    className="cursor-pointer hover:text-foreground"
+                                >
                                     Durum <SortIcon column="isActive" />
                                 </TableHead>
                                 <TableHead className="text-right">İşlemler</TableHead>
@@ -389,7 +397,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                         <TableBody>
                             {processedSubscriptions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={10} className="h-24 text-center">
+                                <TableCell colSpan={11} className="h-24 text-center">
                                         <p className="text-muted-foreground">
                                             {subscriptions.length === 0
                                                 ? 'Henüz kayıt eklenmemiş. "Yeni Kayıt" butonuna tıklayarak başlayın.'
@@ -407,8 +415,16 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                                                     size="icon"
                                                     className="h-6 w-6"
                                                     onClick={() => handleMove(sub, 'up')}
-                                                    disabled={sortColumn !== 'sortOrder' || moveSubscription.isPending || index === 0}
-                                                    title={sortColumn !== 'sortOrder' ? "Sıralamak için '#' sütununa tıklayın" : "Yukarı taşı"}
+                                                    disabled={
+                                                        sortColumn !== 'sortOrder' ||
+                                                        moveSubscription.isPending ||
+                                                        index === 0
+                                                    }
+                                                    title={
+                                                        sortColumn !== 'sortOrder'
+                                                            ? "Sıralamak için '#' sütununa tıklayın"
+                                                            : 'Yukarı taşı'
+                                                    }
                                                 >
                                                     <ChevronUp className="h-3 w-3" />
                                                 </Button>
@@ -417,8 +433,16 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                                                     size="icon"
                                                     className="h-6 w-6"
                                                     onClick={() => handleMove(sub, 'down')}
-                                                    disabled={sortColumn !== 'sortOrder' || moveSubscription.isPending || index === processedSubscriptions.length - 1}
-                                                    title={sortColumn !== 'sortOrder' ? "Sıralamak için '#' sütununa tıklayın" : "Aşağı taşı"}
+                                                    disabled={
+                                                        sortColumn !== 'sortOrder' ||
+                                                        moveSubscription.isPending ||
+                                                        index === processedSubscriptions.length - 1
+                                                    }
+                                                    title={
+                                                        sortColumn !== 'sortOrder'
+                                                            ? "Sıralamak için '#' sütununa tıklayın"
+                                                            : 'Aşağı taşı'
+                                                    }
                                                 >
                                                     <ChevronDown className="h-3 w-3" />
                                                 </Button>
@@ -446,8 +470,13 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                                                 {sub.recurrenceType === 'one_time'
                                                     ? 'Tek seferlik'
                                                     : sub.endDate
-                                                        ? 'Süreli'
-                                                        : 'Sürekli'}
+                                                      ? 'Süreli'
+                                                      : 'Sürekli'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {sub.paymentMode === 'automatic' ? 'Otomatik talimat' : 'Manuel'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{formatAmount(sub.amount, sub.currency)}</TableCell>
@@ -512,19 +541,15 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                     <DialogHeader>
                         <DialogTitle>Aboneliği Sil</DialogTitle>
                         <DialogDescription>
-                            "{subscriptionToDelete?.name}" aboneliğini silmek istediğinizden emin misiniz?
-                            Bu işlem geri alınamaz.
+                            "{subscriptionToDelete?.name}" aboneliğini silmek istediğinizden emin misiniz? Bu işlem geri
+                            alınamaz.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
                             İptal
                         </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleteMutation.isPending}
-                        >
+                        <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
                             {deleteMutation.isPending ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

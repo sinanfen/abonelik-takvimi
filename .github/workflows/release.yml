@@ -1,11 +1,13 @@
 name: Release
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -27,9 +29,9 @@ jobs:
           node-version: 20
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.12.1
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -38,33 +40,35 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libdbus-1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev
 
       - name: Set PKG_CONFIG_PATH (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
         run: echo "PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
       - name: Install frontend dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build and Create Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v${{ github.run_number }}
-          releaseName: 'Build v${{ github.run_number }}'
+          tagName: v__VERSION__
+          releaseName: 'Abonelik Takvimi v__VERSION__'
           releaseBody: |
-            Abonelik Takvimi 0.3.0
+            Abonelik Takvimi 0.4.0
 
-            - Tek seferlik, süreli ve sürekli tekrar eden kayıtlar
-            - Aylık snapshot ve geçmiş ekranı
-            - Genişletilmiş harcama kategorileri
-            - Snapshot içeren sürümlü yedekleme
+            - Manuel ödendi, ödenmedi ve atlandı takibi
+            - Otomatik ödeme talimatı bilgisi
+            - Güvenli, opsiyonel Gmail e-posta hatırlatmaları
+            - İşletim sistemi kimlik kasasında SMTP uygulama şifresi
+            - Kalıcı aylık snapshot ve ödeme geçmişi
 
             Kurulum için aşağıdaki Windows .exe/.msi, macOS .dmg veya Linux paketlerinden uygun olanı indirin.
           releaseDraft: false
-          prerelease: true
+          prerelease: false
+          generateReleaseNotes: true
 
       - name: Upload Release Artifacts (Workflow)
         uses: actions/upload-artifact@v4

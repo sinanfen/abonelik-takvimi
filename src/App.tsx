@@ -6,12 +6,7 @@ import { CalendarView } from '@/features/calendar/CalendarView';
 import { AdminPanel } from '@/features/admin';
 import { HistoryView } from '@/features/history/HistoryView';
 import type { Subscription } from '@/types';
-import {
-  SubscriptionFormModal,
-  useCreateSubscription,
-  useUpdateSubscription,
-  type SubscriptionFormData,
-} from '@/features/subscriptions';
+import { SubscriptionFormModal, useCreateSubscription, useUpdateSubscription, type SubscriptionFormData } from '@/features/subscriptions';
 import { SettingsDialog } from '@/features/settings/SettingsDialog';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useNotificationService } from '@/features/notifications/useNotificationService';
@@ -49,9 +44,7 @@ function AppContent() {
     root.classList.remove('light', 'dark');
 
     if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       root.classList.add(systemTheme);
       return;
     }
@@ -87,6 +80,7 @@ function AppContent() {
             category: data.category,
             frequency: data.frequency,
             recurrenceType: data.recurrenceType,
+            paymentMode: data.paymentMode,
             dayOfMonth: data.dayOfMonth,
             amount: data.amount,
             currency: data.currency,
@@ -105,6 +99,7 @@ function AppContent() {
           category: data.category,
           frequency: data.frequency,
           recurrenceType: data.recurrenceType,
+          paymentMode: data.paymentMode,
           dayOfMonth: data.dayOfMonth,
           amount: data.amount,
           currency: data.currency,
@@ -155,11 +150,7 @@ function AppContent() {
         </TabsContent>
 
         <TabsContent value="admin" className="flex-1 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
-          <AdminPanel
-            onNewSubscription={handleNewSubscription}
-            onEditSubscription={handleEditSubscription}
-            onOpenSettings={handleOpenSettings}
-          />
+          <AdminPanel onNewSubscription={handleNewSubscription} onEditSubscription={handleEditSubscription} onOpenSettings={handleOpenSettings} />
         </TabsContent>
 
         <TabsContent value="history" className="flex-1 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
@@ -172,28 +163,30 @@ function AppContent() {
         isOpen={isFormModalOpen}
         onClose={handleCloseModal}
         onSubmit={handleFormSubmit}
-        initialData={editingSubscription ? {
-          name: editingSubscription.name,
-          type: editingSubscription.type,
-          category: editingSubscription.category,
-          recurrenceType: editingSubscription.recurrenceType,
-          frequency: editingSubscription.recurrence.frequency === 'custom' ? 'monthly' : editingSubscription.recurrence.frequency,
-          dayOfMonth: editingSubscription.recurrence.dayOfMonth,
-          amount: editingSubscription.amount,
-          currency: editingSubscription.currency,
-          notes: editingSubscription.notes,
-          reminders: editingSubscription.reminders,
-          statementDay: editingSubscription.statementDay,
-          dueDay: editingSubscription.dueDay,
-          startDate: formatFormDate(editingSubscription.startDate ?? editingSubscription.createdAt),
-          endDate: formatFormDate(editingSubscription.endDate),
-        } : undefined}
+        initialData={
+          editingSubscription
+            ? {
+                name: editingSubscription.name,
+                type: editingSubscription.type,
+                category: editingSubscription.category,
+                recurrenceType: editingSubscription.recurrenceType,
+                paymentMode: editingSubscription.paymentMode,
+                frequency: editingSubscription.recurrence.frequency === 'custom' ? 'monthly' : editingSubscription.recurrence.frequency,
+                dayOfMonth: editingSubscription.recurrence.dayOfMonth,
+                amount: editingSubscription.amount,
+                currency: editingSubscription.currency,
+                notes: editingSubscription.notes,
+                reminders: editingSubscription.reminders,
+                statementDay: editingSubscription.statementDay,
+                dueDay: editingSubscription.dueDay,
+                startDate: formatFormDate(editingSubscription.startDate ?? editingSubscription.createdAt),
+                endDate: formatFormDate(editingSubscription.endDate),
+              }
+            : undefined
+        }
       />
 
-      <SettingsDialog
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      <SettingsDialog isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

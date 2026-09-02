@@ -6,7 +6,7 @@ import { snapshotRepository } from '@/features/snapshots';
 import type { MonthlySnapshot, Subscription } from '@/types';
 
 interface BackupPayload {
-    version: 2;
+    version: 2 | 3;
     exportedAt: string;
     subscriptions: Subscription[];
     snapshots: MonthlySnapshot[];
@@ -18,7 +18,7 @@ export const backupService = {
             const subscriptions = await subscriptionRepository.getAll();
             const snapshots = await snapshotRepository.getAll();
             const payload: BackupPayload = {
-                version: 2,
+                version: 3,
                 exportedAt: new Date().toISOString(),
                 subscriptions,
                 snapshots,
@@ -26,10 +26,12 @@ export const backupService = {
             const data = JSON.stringify(payload, null, 2);
 
             const filePath = await save({
-                filters: [{
-                    name: 'JSON',
-                    extensions: ['json']
-                }],
+                filters: [
+                    {
+                        name: 'JSON',
+                        extensions: ['json'],
+                    },
+                ],
                 defaultPath: 'abonelik-yedek.json',
             });
 
@@ -48,10 +50,12 @@ export const backupService = {
         try {
             const filePath = await open({
                 multiple: false,
-                filters: [{
-                    name: 'JSON',
-                    extensions: ['json']
-                }]
+                filters: [
+                    {
+                        name: 'JSON',
+                        extensions: ['json'],
+                    },
+                ],
             });
 
             if (filePath && typeof filePath === 'string') {
@@ -72,6 +76,7 @@ export const backupService = {
                         // recurrence objesinden alıyoruz
                         frequency: sub.recurrence?.frequency || 'monthly',
                         recurrenceType: sub.recurrenceType ?? 'recurring',
+                        paymentMode: sub.paymentMode ?? 'manual',
                         dayOfMonth: sub.recurrence?.dayOfMonth,
                         amount: sub.amount,
                         currency: sub.currency,
@@ -90,7 +95,9 @@ export const backupService = {
 
                         // Eğer import edilen veri pasifse, yeni kaydı da pasife çek
                         if (sub.isActive === false) {
-                            await subscriptionRepository.update(created.id, { isActive: false });
+                            await subscriptionRepository.update(created.id, {
+                                isActive: false,
+                            });
                         }
                     } catch (err) {
                         console.error(`Failed to import subscription ${sub.name}:`, err);
@@ -119,5 +126,5 @@ export const backupService = {
             console.error('Import error:', error);
             throw error;
         }
-    }
+    },
 };

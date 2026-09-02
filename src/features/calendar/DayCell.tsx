@@ -28,7 +28,7 @@ export function DayCell({ data, isSelected, onClick, isCurrentMonth = true }: Da
                 today && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
                 isSelected && 'border-primary bg-card',
                 !isSelected && !today && 'border-border bg-card/30',
-                !isCurrentMonth && 'opacity-40 grayscale'
+                !isCurrentMonth && 'opacity-40 grayscale',
             )}
         >
             {/* Date header */}
@@ -38,14 +38,12 @@ export function DayCell({ data, isSelected, onClick, isCurrentMonth = true }: Da
                         'flex h-7 w-7 items-center justify-center rounded-lg text-sm font-medium',
                         today && 'bg-primary text-primary-foreground',
                         isSelected && !today && 'bg-secondary text-foreground',
-                        !today && !isSelected && 'text-foreground'
+                        !today && !isSelected && 'text-foreground',
                     )}
                 >
                     {format(date, 'd')}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                    {format(date, 'EEE', { locale: tr })}
-                </span>
+                <span className="text-xs text-muted-foreground">{format(date, 'EEE', { locale: tr })}</span>
             </div>
 
             {/* Events */}
@@ -53,19 +51,22 @@ export function DayCell({ data, isSelected, onClick, isCurrentMonth = true }: Da
                 {displayEvents.map((event) => (
                     <div
                         key={event.id}
-                        className="truncate rounded-md border px-1.5 py-0.5 text-xs font-medium"
+                        className={cn(
+                            'truncate rounded-md border px-1.5 py-0.5 text-xs font-medium',
+                            event.status === 'done' && 'opacity-60 line-through',
+                            event.status === 'skipped' && 'opacity-40',
+                        )}
                         style={{
                             color: CATEGORY_COLORS.get(event.category) ?? '#94A3B8',
                             borderColor: `${CATEGORY_COLORS.get(event.category) ?? '#94A3B8'}55`,
                             backgroundColor: `${CATEGORY_COLORS.get(event.category) ?? '#94A3B8'}20`,
                         }}
                     >
+                        {event.status === 'done' ? '✓ ' : event.status === 'skipped' ? '– ' : ''}
                         {event.title}
                     </div>
                 ))}
-                {remaining > 0 && (
-                    <span className="text-xs text-muted-foreground">+{remaining} daha</span>
-                )}
+                {remaining > 0 && <span className="text-xs text-muted-foreground">+{remaining} daha</span>}
             </div>
         </button>
     );

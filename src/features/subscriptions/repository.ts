@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import { getDatabase } from '@/lib/database';
-import type { Subscription, SubscriptionType, Category, RecurrenceType } from '@/types';
+import type { Subscription, SubscriptionType, Category, RecurrenceType, PaymentMode } from '@/types';
 
 // Database row interface
 interface SubscriptionRow {
@@ -10,6 +10,7 @@ interface SubscriptionRow {
     category: Category;
     frequency: 'monthly' | 'weekly' | 'yearly' | 'custom';
     recurrence_type: RecurrenceType;
+    payment_mode: PaymentMode;
     day_of_month: number | null;
     amount: number | null;
     currency: string;
@@ -38,6 +39,7 @@ function rowToSubscription(row: SubscriptionRow): Subscription {
             dayOfMonth: row.day_of_month ?? undefined,
         },
         recurrenceType: row.recurrence_type ?? 'recurring',
+        paymentMode: row.payment_mode ?? 'manual',
         amount: row.amount ?? undefined,
         currency: row.currency,
         paymentMethod: row.payment_method ?? undefined,
@@ -61,6 +63,7 @@ export interface CreateSubscriptionInput {
     category: Category;
     frequency: 'monthly' | 'weekly' | 'yearly' | 'custom';
     recurrenceType?: RecurrenceType;
+    paymentMode?: PaymentMode;
     dayOfMonth?: number;
     amount?: number;
     currency?: string;
@@ -84,7 +87,7 @@ export const subscriptionRepository = {
     async getAll(): Promise<Subscription[]> {
         const db = await getDatabase();
         const rows = await db.select<SubscriptionRow[]>(
-            'SELECT * FROM subscriptions ORDER BY sort_order ASC, name ASC'
+            'SELECT * FROM subscriptions ORDER BY sort_order ASC, name ASC',
         );
         return rows.map(rowToSubscription);
     },
@@ -93,7 +96,7 @@ export const subscriptionRepository = {
     async getActive(): Promise<Subscription[]> {
         const db = await getDatabase();
         const rows = await db.select<SubscriptionRow[]>(
-            'SELECT * FROM subscriptions WHERE is_active = 1 ORDER BY sort_order ASC, name ASC'
+            'SELECT * FROM subscriptions WHERE is_active = 1 ORDER BY sort_order ASC, name ASC',
         );
         return rows.map(rowToSubscription);
     },
@@ -101,16 +104,12 @@ export const subscriptionRepository = {
     // Get subscription by ID
     async getById(id: string): Promise<Subscription | null> {
         const db = await getDatabase();
-        const rows = await db.select<SubscriptionRow[]>(
-            'SELECT * FROM subscriptions WHERE id = ?',
-            [id]
-        );
+        const rows = await db.select<SubscriptionRow[]>('SELECT * FROM subscriptions WHERE id = ?', [id]);
         return rows.length > 0 ? rowToSubscription(rows[0]) : null;
     },
 
     // Create subscription
     async create(input: CreateSubscriptionInput): Promise<Subscription> {
-        console.log('Creating subscription with input:', input);
         try {
             const db = await getDatabase();
             const id = nanoid();
@@ -118,17 +117,17 @@ export const subscriptionRepository = {
 
             // Get max sort_order
             const maxOrderResult = await db.select<{ max_order: number }[]>(
-                'SELECT MAX(sort_order) as max_order FROM subscriptions'
+                'SELECT MAX(sort_order) as max_order FROM subscriptions',
             );
             const nextOrder = (maxOrderResult[0]?.max_order ?? -1) + 1;
 
             await db.execute(
                 `INSERT INTO subscriptions (
-            id, name, type, category, frequency, recurrence_type, day_of_month,
+            id, name, type, category, frequency, recurrence_type, payment_mode, day_of_month,
             amount, currency, payment_method, reminders, 
             notes, statement_day, due_day, start_date, end_date,
             created_at, updated_at, sort_order
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     id,
                     input.name,
@@ -136,6 +135,7 @@ export const subscriptionRepository = {
                     input.category,
                     input.frequency,
                     input.recurrenceType ?? 'recurring',
+                    input.paymentMode ?? 'manual',
                     input.dayOfMonth ?? null,
                     input.amount ?? null,
                     input.currency ?? 'TRY',
@@ -149,15 +149,13 @@ export const subscriptionRepository = {
                     now,
                     now,
                     input.sortOrder ?? nextOrder,
-                ]
+                ],
             );
 
-            console.log('Subscription inserted into DB, fetching by ID:', id);
             const subscription = await this.getById(id);
             if (!subscription) {
                 throw new Error('Failed to create subscription');
             }
-            console.log('Subscription created successfully:', subscription);
             return subscription;
         } catch (error) {
             console.error('Error in repository.create:', error);
@@ -192,6 +190,10 @@ export const subscriptionRepository = {
         if (input.recurrenceType !== undefined) {
             updates.push('recurrence_type = ?');
             values.push(input.recurrenceType);
+        }
+        if (input.paymentMode !== undefined) {
+            updates.push('payment_mode = ?');
+            values.push(input.paymentMode);
         }
         if (input.dayOfMonth !== undefined) {
             updates.push('day_of_month = ?');
@@ -246,10 +248,7 @@ export const subscriptionRepository = {
         values.push(now);
         values.push(id);
 
-        await db.execute(
-            `UPDATE subscriptions SET ${updates.join(', ')} WHERE id = ?`,
-            values
-        );
+        await db.execute(`UPDATE subscriptions SET ${updates.join(', ')} WHERE id = ?`, values);
 
         const subscription = await this.getById(id);
         if (!subscription) {
@@ -278,7 +277,7 @@ export const subscriptionRepository = {
         const db = await getDatabase();
         const rows = await db.select<SubscriptionRow[]>(
             'SELECT * FROM subscriptions WHERE name LIKE ? ORDER BY name ASC',
-            [`%${query}%`]
+            [`%${query}%`],
         );
         return rows.map(rowToSubscription);
     },
@@ -288,7 +287,7 @@ export const subscriptionRepository = {
         const db = await getDatabase();
         const rows = await db.select<SubscriptionRow[]>(
             'SELECT * FROM subscriptions WHERE category = ? AND is_active = 1 ORDER BY name ASC',
-            [category]
+            [category],
         );
         return rows.map(rowToSubscription);
     },
@@ -298,7 +297,7 @@ export const subscriptionRepository = {
         const db = await getDatabase();
         // 1. Get all subscriptions ordered by current sort_order
         const rows = await db.select<SubscriptionRow[]>(
-            'SELECT * FROM subscriptions ORDER BY sort_order ASC, name ASC'
+            'SELECT * FROM subscriptions ORDER BY sort_order ASC, name ASC',
         );
 
         const items = rows.map(rowToSubscription);
@@ -327,10 +326,11 @@ export const subscriptionRepository = {
             const newOrder = i + 1;
 
             if (sub.sortOrder !== newOrder) {
-                await db.execute(
-                    'UPDATE subscriptions SET sort_order = ?, updated_at = ? WHERE id = ?',
-                    [newOrder, new Date().toISOString(), sub.id]
-                );
+                await db.execute('UPDATE subscriptions SET sort_order = ?, updated_at = ? WHERE id = ?', [
+                    newOrder,
+                    new Date().toISOString(),
+                    sub.id,
+                ]);
             }
         }
     },

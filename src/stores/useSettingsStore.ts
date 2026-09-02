@@ -1,26 +1,43 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
-export type Theme = 'dark' | 'light' | 'system';
+export type Theme = "dark" | "light" | "system";
+export type EmailProvider = "gmail";
 
 interface SettingsState {
-    theme: Theme;
-    notificationsEnabled: boolean;
-    setTheme: (theme: Theme) => void;
-    toggleNotifications: () => void;
+  theme: Theme;
+  emailRemindersEnabled: boolean;
+  emailProvider: EmailProvider;
+  emailAddress: string;
+  emailRecipient: string;
+  setTheme: (theme: Theme) => void;
+  setEmailSettings: (
+    settings: Partial<
+      Pick<
+        SettingsState,
+        | "emailRemindersEnabled"
+        | "emailProvider"
+        | "emailAddress"
+        | "emailRecipient"
+      >
+    >,
+  ) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
-    persist(
-        (set) => ({
-            theme: 'dark', // Default dark
-            notificationsEnabled: true,
-            setTheme: (theme) => set({ theme }),
-            toggleNotifications: () => set((state) => ({ notificationsEnabled: !state.notificationsEnabled })),
-        }),
-        {
-            name: 'settings-storage',
-            storage: createJSONStorage(() => localStorage),
-        }
-    )
+  persist(
+    (set) => ({
+      theme: "dark", // Default dark
+      emailRemindersEnabled: false,
+      emailProvider: "gmail",
+      emailAddress: "",
+      emailRecipient: "",
+      setTheme: (theme) => set({ theme }),
+      setEmailSettings: (settings) => set(settings),
+    }),
+    {
+      name: "settings-storage",
+      storage: createJSONStorage(() => localStorage),
+    },
+  ),
 );

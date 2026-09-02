@@ -1,68 +1,102 @@
-import { useEffect, useState } from 'react';
-import {
-    isPermissionGranted,
-    requestPermission,
-    sendNotification,
-} from '@tauri-apps/plugin-notification';
-import { useSettingsStore } from '@/stores/useSettingsStore';
-import { useSubscriptions } from '@/features/subscriptions'; // Hook import
-import { isReminderDue } from '@/lib/subscriptionUtils';
+import { useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { isSameDay, startOfDay, subDays } from "date-fns";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useSubscriptions } from "@/features/subscriptions";
+import { getNextPaymentDate } from "@/lib/subscriptionUtils";
+import { snapshotRepository } from "@/features/snapshots";
+
+function toDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export function useNotificationService() {
-    const { notificationsEnabled } = useSettingsStore();
-    const { data: subscriptions } = useSubscriptions();
-    const [permissionGranted, setPermissionGranted] = useState(false);
+  const { emailRemindersEnabled, emailProvider, emailAddress, emailRecipient } =
+    useSettingsStore();
+  const { data: subscriptions } = useSubscriptions();
 
-    // 1. İzin Kontrolü
-    useEffect(() => {
-        if (!notificationsEnabled) return;
+  // Uygulama açıkken açılışta ve saatte bir kontrol edilir.
+  useEffect(() => {
+    if (
+      !emailRemindersEnabled ||
+      !subscriptions ||
+      !emailAddress ||
+      !emailRecipient
+    )
+      return;
+    let isChecking = false;
 
-        const checkPermission = async () => {
-            try {
-                let granted = await isPermissionGranted();
-                if (!granted) {
-                    const permission = await requestPermission();
-                    granted = permission === 'granted';
-                }
-                setPermissionGranted(granted);
-            } catch (error) {
-                console.error('Notification permission check failed:', error);
+    const checkAndNotify = async () => {
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        const today = startOfDay(new Date());
+        for (const subscription of subscriptions) {
+          if (!subscription.isActive || subscription.reminders.length === 0)
+            continue;
+          const paymentDate = getNextPaymentDate(subscription, today);
+          if (!paymentDate) continue;
+          const status = await snapshotRepository.getPaymentStatus(
+            subscription.id,
+            paymentDate,
+          );
+          if (status === "done" || status === "skipped") continue;
+
+          for (const daysBefore of subscription.reminders) {
+            if (!isSameDay(today, subDays(paymentDate, daysBefore))) continue;
+
+            if (
+              !(await snapshotRepository.hasReminderDispatch(
+                subscription.id,
+                paymentDate,
+                daysBefore,
+                "email",
+              ))
+            ) {
+              try {
+                await invoke("send_payment_reminder", {
+                  config: {
+                    provider: emailProvider,
+                    username: emailAddress,
+                    recipient: emailRecipient,
+                  },
+                  reminder: {
+                    title: subscription.name,
+                    amount: subscription.amount ?? null,
+                    currency: subscription.currency,
+                    occurrenceDate: toDateKey(paymentDate),
+                    daysBefore,
+                    automaticPayment: subscription.paymentMode === "automatic",
+                  },
+                });
+                await snapshotRepository.recordReminderDispatch(
+                  subscription.id,
+                  paymentDate,
+                  daysBefore,
+                  "email",
+                );
+              } catch (error) {
+                console.error("E-posta hatırlatması gönderilemedi:", error);
+              }
             }
-        };
+          }
+        }
+      } finally {
+        isChecking = false;
+      }
+    };
 
-        checkPermission();
-    }, [notificationsEnabled]);
-
-    // 2. Hatırlatma Kontrolü
-    useEffect(() => {
-        if (!notificationsEnabled || !permissionGranted || !subscriptions) return;
-
-        const checkAndNotify = async () => {
-            subscriptions.forEach(sub => {
-                if (isReminderDue(sub)) {
-                    // Tekrar eden bildirimleri engelle (local storage key: subId + date)
-                    const todayStr = new Date().toDateString();
-                    const key = `notified-${sub.id}-${todayStr}`;
-
-                    if (localStorage.getItem(key)) return;
-
-                    try {
-                        sendNotification({
-                            title: 'Ödeme Hatırlatması 🔔',
-                            body: `${sub.name} için ödeme günü yaklaşıyor! (${sub.amount} ${sub.currency})`,
-                        });
-
-                        localStorage.setItem(key, 'true');
-                    } catch (error) {
-                        console.error('Failed to send notification:', error);
-                    }
-                }
-            });
-        };
-
-        checkAndNotify(); // İlk yüklemede kontrol et
-        const interval = setInterval(checkAndNotify, 60 * 60 * 1000); // 1 saatte bir kontrol (uygulama açıksa)
-
-        return () => clearInterval(interval);
-    }, [notificationsEnabled, permissionGranted, subscriptions]);
+    void checkAndNotify();
+    const interval = window.setInterval(
+      () => void checkAndNotify(),
+      60 * 60 * 1000,
+    );
+    return () => window.clearInterval(interval);
+  }, [
+    emailRemindersEnabled,
+    emailProvider,
+    emailAddress,
+    emailRecipient,
+    subscriptions,
+  ]);
 }

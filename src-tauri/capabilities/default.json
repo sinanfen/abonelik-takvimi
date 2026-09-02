@@ -2,9 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "sql:default",
@@ -13,9 +11,6 @@
     "dialog:default",
     "fs:default",
     "fs:allow-write-text-file",
-    "fs:allow-read-text-file",
-    "fs:allow-home-read",
-    "fs:allow-home-write",
-    "notification:default"
+    "fs:allow-read-text-file"
   ]
 }

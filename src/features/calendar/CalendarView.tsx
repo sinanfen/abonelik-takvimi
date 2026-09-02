@@ -1,24 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { backupService } from '@/lib/backup';
-import {
-    addDays,
-    startOfToday,
-    format,
-    isSameDay,
-    isBefore,
-} from 'date-fns';
+import { addDays, startOfToday, format, isSameDay, isBefore } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import {
-    Plus,
-    Settings,
-    Download,
-    Upload,
-    Search,
-    ChevronLeft,
-    ChevronRight,
-    Loader2,
-} from 'lucide-react';
+import { Plus, Settings, Download, Upload, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DayCell } from './DayCell';
@@ -72,6 +57,7 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
     };
 
     const monthKey = toMonthKey(currentMonth);
+    const currentMonthKey = toMonthKey(new Date());
     const { data: snapshot, isLoading, error } = useMonthlySnapshot(monthKey);
 
     // Calculate calendar grid for the current month
@@ -135,19 +121,16 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
 
             // Apply search filter
             if (searchQuery) {
-                events = events.filter((e) =>
-                    e.title.toLowerCase().includes(searchQuery.toLowerCase())
-                );
+                events = events.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()));
             }
 
-            // Sort events by global sort order (if available on event's subscription, which we don't have direct access to here easily without lookup, 
+            // Sort events by global sort order (if available on event's subscription, which we don't have direct access to here easily without lookup,
             // but generateEventsForDateRange could be updated or we rely on repo sort)
             // Ideally events should carry sortOrder. For now, rely on default insertion order which comes from repo sorted query.
 
             return { date, events };
         });
     }, [calendarDays, allEvents, filters, searchQuery]);
-
 
     const handlePrevious = () => {
         setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -161,9 +144,7 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
         setCurrentMonth(startOfToday());
     };
 
-    const selectedDayData = selectedDate
-        ? daysData.find((d) => isSameDay(d.date, selectedDate))
-        : null;
+    const selectedDayData = selectedDate ? daysData.find((d) => isSameDay(d.date, selectedDate)) : null;
 
     const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
@@ -193,7 +174,10 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                             <h1 className="text-lg font-semibold text-foreground capitalize">
                                 {format(currentMonth, 'MMMM yyyy', { locale: tr })}
                             </h1>
-                            {!isSameDay(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1), new Date(new Date().getFullYear(), new Date().getMonth(), 1)) && (
+                            {!isSameDay(
+                                new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1),
+                                new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                            ) && (
                                 <Button variant="outline" size="sm" onClick={handleToday}>
                                     Bugün
                                 </Button>
@@ -256,9 +240,7 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                         </div>
                     ) : allEvents.length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center gap-4">
-                            <p className="text-muted-foreground">
-                                Bu ay için ödeme veya harcama kaydı yok.
-                            </p>
+                            <p className="text-muted-foreground">Bu ay için ödeme veya harcama kaydı yok.</p>
                             <Button onClick={onNewSubscription}>
                                 <Plus className="h-4 w-4" />
                                 İlk Kaydı Ekle
@@ -286,7 +268,8 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                 onClose={() => setSelectedDate(null)}
                 dayData={selectedDayData ?? null}
                 onNewSubscription={onNewSubscription}
-                isReadOnly={monthKey < toMonthKey(new Date())}
+                isReadOnly={monthKey < currentMonthKey}
+                canUpdateStatus={monthKey <= currentMonthKey}
             />
         </div>
     );
