@@ -78,9 +78,10 @@ jobs:
 
             - Ekim snapshot'ında görülen "snapshot_items has no column named amount_mode" hatası düzeltildi
             - İlk geliştirme sürümünden kalan bilinen v4 migration'ı veri ve kontrol toplamları değiştirilmeden desteklenir
+            - v0.5.0 Windows veritabanlarının CRLF migration kontrol toplamları da desteklenir
             - Veritabanı yükseltmesi arayüz sorgularından önce tamamlanır; eşzamanlı bağlantı hazırlığı engellenir
             - Geçmiş aylar, ödeme durumları ve korunması gereken tutarlar yükseltmede saklanır
-            - Windows, macOS ve Linux üzerinde 23 ödeme/bağlantı testi ve 4 gerçek SQLx migration testi
+            - Windows, macOS ve Linux üzerinde 23 ödeme/bağlantı testi ve 5 gerçek SQLx migration testi
 
             Güncelleme: Açık uygulamayı kapatıp yeni kurulumu mevcut sürümün üzerine yükleyin. Veritabanını veya uygulama veri klasörünü silmeyin; ilk açılışta yükseltme otomatik uygulanır.
 

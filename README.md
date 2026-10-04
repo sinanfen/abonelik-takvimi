@@ -93,7 +93,7 @@ Projeyi yerel ortamınızda çalıştırmak için:
 
 ### Veritabanı yükseltme güvenliği
 
-Veritabanı migration'ları arayüz sorgularından önce tamamlanır; eşzamanlı açılış sorguları tek bağlantı hazırlığını paylaşır. İlk masaüstü bildirimli geliştirme sürümünün bilinen v4 migration'ı da desteklenir; migration geçmişindeki kontrol toplamları değiştirilmez. Bilinmeyen bir kontrol toplamı uyuşmazlığı yükseltmeyi durdurur. Eski v4 desteği masaüstü bildirimlerini yeniden etkinleştirmez; mevcut kayıtlar ve aylık geçmiş korunur.
+Veritabanı migration'ları arayüz sorgularından önce tamamlanır; eşzamanlı açılış sorguları tek bağlantı hazırlığını paylaşır. İlk masaüstü bildirimli geliştirme sürümünün bilinen v4 migration'ı ve v0.5.0 Windows paketinin CRLF satır sonlu v5 migration'ı da desteklenir; migration geçmişindeki kontrol toplamları değiştirilmez. Yeni SQL dosyaları platformdan bağımsız LF satır sonları kullanır. Bilinmeyen bir kontrol toplamı uyuşmazlığı yükseltmeyi durdurur. Eski v4 desteği masaüstü bildirimlerini yeniden etkinleştirmez; mevcut kayıtlar ve aylık geçmiş korunur.
 
 ## 🤝 Katkıda Bulunma (Contributing)
 

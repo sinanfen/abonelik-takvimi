@@ -1,7 +1,7 @@
 use sqlx::{
     migrate::Migration as SqlxMigration, sqlite::SqliteConnectOptions, Connection, SqliteConnection,
 };
-use std::path::Path;
+use std::{path::Path, sync::OnceLock};
 use tauri_plugin_sql::Migration;
 
 // The early desktop build applied this exact v4 before desktop notifications
@@ -25,7 +25,18 @@ const LEGACY_V4_SQL: &str = r#"
                     ON reminder_dispatches(subscription_id, occurrence_date, reminder_days, channel);
             "#;
 
-async fn select_compatible_v4(
+// v0.5.0 Windows installers embedded v5 with CRLF line endings. New builds
+// keep SQL files LF on every OS, but must still validate existing CRLF v5 DBs.
+fn legacy_v5_sql() -> &'static str {
+    static SQL: OnceLock<String> = OnceLock::new();
+    SQL.get_or_init(|| {
+        include_str!("../migrations/005_variable_amounts.sql")
+            .replace("\r\n", "\n")
+            .replace('\n', "\r\n")
+    })
+}
+
+async fn select_compatible_migrations(
     connection: &mut SqliteConnection,
     migrations: &mut [Migration],
 ) -> Result<(), sqlx::Error> {
@@ -37,24 +48,31 @@ async fn select_compatible_v4(
     if !has_history {
         return Ok(());
     }
-    let checksum: Option<Vec<u8>> = sqlx::query_scalar(
-        "SELECT checksum FROM _sqlx_migrations WHERE version = 4 AND success = 1",
+    let applied: Vec<(i64, Vec<u8>)> = sqlx::query_as(
+        "SELECT version, checksum FROM _sqlx_migrations WHERE version IN (4, 5) AND success = 1",
     )
-    .fetch_optional(&mut *connection)
+    .fetch_all(&mut *connection)
     .await?;
-    let legacy = SqlxMigration::new(
-        4,
-        "Add payment tracking and reminder delivery log".into(),
-        sqlx::migrate::MigrationType::ReversibleUp,
-        LEGACY_V4_SQL.into(),
-        false,
-    );
-    if checksum.as_deref() == Some(legacy.checksum.as_ref()) {
+    for (version, checksum) in applied {
         if let Some(migration) = migrations
             .iter_mut()
-            .find(|migration| migration.version == 4)
+            .find(|migration| migration.version == version)
         {
-            migration.sql = LEGACY_V4_SQL;
+            let sql = match version {
+                4 => LEGACY_V4_SQL,
+                5 => legacy_v5_sql(),
+                _ => continue,
+            };
+            let legacy = SqlxMigration::new(
+                version,
+                migration.description.into(),
+                sqlx::migrate::MigrationType::ReversibleUp,
+                sql.into(),
+                false,
+            );
+            if checksum.as_slice() == legacy.checksum.as_ref() {
+                migration.sql = sql;
+            }
         }
     }
     Ok(())
@@ -69,7 +87,7 @@ pub async fn compatible_migrations(
             &SqliteConnectOptions::new().filename(path).read_only(true),
         )
         .await?;
-        let result = select_compatible_v4(&mut connection, &mut migrations).await;
+        let result = select_compatible_migrations(&mut connection, &mut migrations).await;
         connection.close().await?;
         result?;
     }
@@ -129,7 +147,7 @@ mod tests {
                 .unwrap();
 
         let mut upgraded = crate::database_migrations();
-        select_compatible_v4(&mut connection, &mut upgraded)
+        select_compatible_migrations(&mut connection, &mut upgraded)
             .await
             .unwrap();
         migrator(upgraded).run(&mut connection).await.unwrap();
@@ -155,7 +173,7 @@ mod tests {
 
         // Reopening/initializing again must neither rerun ALTERs nor lose data.
         let mut reopened = crate::database_migrations();
-        select_compatible_v4(&mut connection, &mut reopened)
+        select_compatible_migrations(&mut connection, &mut reopened)
             .await
             .unwrap();
         migrator(reopened).run(&mut connection).await.unwrap();
@@ -187,7 +205,7 @@ mod tests {
                     migrator(original).run(&mut connection).await.unwrap();
                 }
                 let mut upgraded = crate::database_migrations();
-                select_compatible_v4(&mut connection, &mut upgraded)
+                select_compatible_migrations(&mut connection, &mut upgraded)
                     .await
                     .unwrap();
                 migrator(upgraded).run(&mut connection).await.unwrap();
@@ -204,6 +222,50 @@ mod tests {
     }
 
     #[test]
+    fn reopens_published_v5_with_lf_or_crlf_without_changing_data_or_checksums() {
+        tauri::async_runtime::block_on(async {
+            for crlf in [false, true] {
+                let mut connection = SqliteConnection::connect("sqlite::memory:").await.unwrap();
+                let mut original = crate::database_migrations();
+                if crlf {
+                    original
+                        .iter_mut()
+                        .find(|migration| migration.version == 5)
+                        .unwrap()
+                        .sql = legacy_v5_sql();
+                }
+                migrator(original).run(&mut connection).await.unwrap();
+                sqlx::query("INSERT INTO subscriptions (id, name, type, category, frequency, amount, amount_mode) VALUES ('rent', 'Kira', 'other', 'Housing', 'monthly', 15000, 'fixed')")
+                    .execute(&mut connection).await.unwrap();
+                let before: Vec<(i64, Vec<u8>)> = sqlx::query_as(
+                    "SELECT version, checksum FROM _sqlx_migrations ORDER BY version",
+                )
+                .fetch_all(&mut connection)
+                .await
+                .unwrap();
+                let mut reopened = crate::database_migrations();
+                select_compatible_migrations(&mut connection, &mut reopened)
+                    .await
+                    .unwrap();
+                migrator(reopened).run(&mut connection).await.unwrap();
+                let after: Vec<(i64, Vec<u8>)> = sqlx::query_as(
+                    "SELECT version, checksum FROM _sqlx_migrations ORDER BY version",
+                )
+                .fetch_all(&mut connection)
+                .await
+                .unwrap();
+                assert_eq!(before, after);
+                let amount: f64 =
+                    sqlx::query_scalar("SELECT amount FROM subscriptions WHERE id = 'rent'")
+                        .fetch_one(&mut connection)
+                        .await
+                        .unwrap();
+                assert_eq!(amount, 15000.0);
+            }
+        });
+    }
+
+    #[test]
     fn rejects_unknown_migration_checksums() {
         tauri::async_runtime::block_on(async {
             let mut connection = SqliteConnection::connect("sqlite::memory:").await.unwrap();
@@ -215,7 +277,7 @@ mod tests {
                 .await
                 .unwrap();
             let mut upgraded = crate::database_migrations();
-            select_compatible_v4(&mut connection, &mut upgraded)
+            select_compatible_migrations(&mut connection, &mut upgraded)
                 .await
                 .unwrap();
             assert!(matches!(
