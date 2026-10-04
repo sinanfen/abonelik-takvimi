@@ -85,10 +85,15 @@ Projeyi yerel ortamınızda çalıştırmak için:
    pnpm test
    pnpm lint
    pnpm build
+   cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
    cargo check --locked --manifest-path src-tauri/Cargo.toml
    ```
 
-   Testler gerçek migration SQL'ini ve repository sorgularını izole, bellek içi SQLite üzerinde çalıştırır; kişisel veritabanınıza dokunmaz.
+   Testler gerçek migration SQL'ini ve repository sorgularını izole, bellek içi SQLite üzerinde çalıştırır; kişisel veritabanınıza dokunmaz. Rust testleri ayrıca SQLx kontrol toplamı doğrulamasıyla eski ve yayımlanmış veritabanlarından yükseltmeyi sınar.
+
+### Veritabanı yükseltme güvenliği
+
+Veritabanı migration'ları arayüz sorgularından önce tamamlanır; eşzamanlı açılış sorguları tek bağlantı hazırlığını paylaşır. İlk masaüstü bildirimli geliştirme sürümünün bilinen v4 migration'ı da desteklenir; migration geçmişindeki kontrol toplamları değiştirilmez. Bilinmeyen bir kontrol toplamı uyuşmazlığı yükseltmeyi durdurur. Eski v4 desteği masaüstü bildirimlerini yeniden etkinleştirmez; mevcut kayıtlar ve aylık geçmiş korunur.
 
 ## 🤝 Katkıda Bulunma (Contributing)
 

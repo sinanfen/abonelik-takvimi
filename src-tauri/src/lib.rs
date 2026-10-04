@@ -4,7 +4,10 @@ use lettre::{
     Transport,
 };
 use serde::Deserialize;
+use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
+
+mod database;
 
 const KEYRING_SERVICE: &str = "com.abonelik-takvimi.app.smtp";
 const KEYRING_ACCOUNT: &str = "smtp-password";
@@ -160,10 +163,8 @@ async fn send_payment_reminder(
         .map_err(|_| "E-posta görevi tamamlanamadı".to_string())?
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    // Database migrations
-    let migrations = vec![
+fn database_migrations() -> Vec<Migration> {
+    vec![
         Migration {
             version: 1,
             description: "Create subscriptions table",
@@ -264,14 +265,12 @@ pub fn run() {
             sql: include_str!("../migrations/005_variable_amounts.sql"),
             kind: MigrationKind::Up,
         },
-    ];
+    ]
+}
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
     tauri::Builder::default()
-        .plugin(
-            tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:subscriptions.db", migrations)
-                .build(),
-        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
@@ -282,6 +281,19 @@ pub fn run() {
             send_payment_reminder
         ])
         .setup(|app| {
+            let database_path = app.path().app_config_dir()?.join("subscriptions.db");
+            let migrations = tauri::async_runtime::block_on(database::compatible_migrations(
+                &database_path,
+                database_migrations(),
+            ))?;
+            // Initialize and migrate natively before allowing frontend queries.
+            // An actual migration error aborts startup instead of exposing a
+            // partially upgraded database through a second frontend load.
+            app.handle().plugin(
+                tauri_plugin_sql::Builder::default()
+                    .add_migrations("sqlite:subscriptions.db", migrations)
+                    .build(),
+            )?;
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

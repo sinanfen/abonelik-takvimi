@@ -1,0 +1,2 @@
+# include_str! SQL is checksummed by SQLx; keep identical bytes on every OS.
+src-tauri/migrations/*.sql text eol=lf

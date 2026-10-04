@@ -63,6 +63,9 @@ jobs:
           pnpm test
           pnpm lint
 
+      - name: Validate database upgrades
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+
       - name: Build and Create Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -71,15 +74,15 @@ jobs:
           tagName: v__VERSION__
           releaseName: "Abonelik Takvimi v__VERSION__"
           releaseBody: |
-            Abonelik Takvimi 0.5.0
+            Abonelik Takvimi 0.5.1 — Snapshot yükleme düzeltmesi
 
-            - Kira, aidat ve abonelikler için sabit tekrar eden tutarlar
-            - Su, elektrik ve doğalgaz için her ay ayrı girilen değişken tutarlar
-            - Market ve alışveriş için farklı tarih ve tutarlarda tek seferlik harcamalar
-            - Detay ekranından yalnızca ilgili dönemin tutarını ve ödeme tarihini düzenleme
-            - Geçmiş tutarları koruyan veri geçişi ve geleceğe girilmiş tutarları içeren yedekler
-            - Gerçek aylık tutar ve tarih ile e-posta hatırlatmaları
-            - Üç işletim sisteminde SQLite entegrasyon testleri
+            - Ekim snapshot'ında görülen "snapshot_items has no column named amount_mode" hatası düzeltildi
+            - İlk geliştirme sürümünden kalan bilinen v4 migration'ı veri ve kontrol toplamları değiştirilmeden desteklenir
+            - Veritabanı yükseltmesi arayüz sorgularından önce tamamlanır; eşzamanlı bağlantı hazırlığı engellenir
+            - Geçmiş aylar, ödeme durumları ve korunması gereken tutarlar yükseltmede saklanır
+            - Windows, macOS ve Linux üzerinde 23 ödeme/bağlantı testi ve 4 gerçek SQLx migration testi
+
+            Güncelleme: Açık uygulamayı kapatıp yeni kurulumu mevcut sürümün üzerine yükleyin. Veritabanını veya uygulama veri klasörünü silmeyin; ilk açılışta yükseltme otomatik uygulanır.
 
             Kurulum: Windows x64 .exe/.msi; macOS Intel ve Apple Silicon universal .dmg; Linux x64 .AppImage/.deb/.rpm.
             Dosya bütünlüğü için SHA256SUMS.txt dosyasını kullanabilirsiniz.
