@@ -125,12 +125,14 @@ jobs:
             if (context.ref.startsWith('refs/tags/') && context.ref !== `refs/tags/${tag}`) {
               throw new Error('Release tag and application version do not match');
             }
-            const { data: release } = await github.rest.repos.getReleaseByTag({
-              ...context.repo, tag,
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              ...context.repo, per_page: 100,
             });
+            const release = releases.find(item => item.tag_name === tag);
+            if (!release) throw new Error(`Release not found: ${tag}`);
             const required = ['.msi', '-setup.exe', '_universal.dmg', '.AppImage', '.deb', '.rpm', '.app.tar.gz'];
             for (const suffix of required) {
-              if (!release.assets.some(asset => asset.name.endsWith(suffix) && asset.size > 0)) {
+              if (!release.assets.some(asset => asset.name.endsWith(suffix) && asset.size > 0 && asset.state === 'uploaded')) {
                 throw new Error(`Missing or empty installer: ${suffix}`);
               }
             }
