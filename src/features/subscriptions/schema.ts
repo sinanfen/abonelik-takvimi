@@ -40,6 +40,11 @@ export const paymentModes = [
     { value: 'automatic', label: 'Otomatik ödeme talimatı' },
 ] as const;
 
+export const amountModes = [
+    { value: 'fixed', label: 'Sabit tutar · her dönem aynı' },
+    { value: 'variable', label: 'Değişken tutar · her dönem ben girerim' },
+] as const;
+
 export const reminderOptions = [
     { value: 7, label: '7 gün önce' },
     { value: 3, label: '3 gün önce' },
@@ -76,11 +81,15 @@ export const subscriptionFormSchema = z
         ),
         recurrenceType: z.enum(['recurring', 'one_time']).default('recurring'),
         paymentMode: z.enum(['manual', 'automatic']).default('manual'),
+        amountMode: z.enum(['fixed', 'variable']).default('fixed'),
         frequency: z.enum(['monthly', 'weekly', 'yearly'], {
             required_error: 'Tekrar sıklığı seçimi zorunludur',
         }),
         dayOfMonth: z.coerce.number().min(1, 'Gün 1-31 arasında olmalı').max(31, 'Gün 1-31 arasında olmalı').optional(),
-        amount: z.preprocess((value) => (value === '' ? undefined : value), z.coerce.number().min(0).optional()),
+        amount: z.preprocess(
+            (value) => (value === '' ? undefined : value),
+            z.coerce.number().finite().min(0).optional(),
+        ),
         currency: z.string().default('TRY'),
         paymentMethod: z.string().optional(),
         reminders: z.array(z.number()).default([1]),
@@ -92,7 +101,7 @@ export const subscriptionFormSchema = z
         dueDay: z.coerce.number().min(1).max(31).optional(),
     })
     .superRefine((data, ctx) => {
-        if (data.endDate && data.endDate < data.startDate) {
+        if (data.recurrenceType === 'recurring' && data.endDate && data.endDate < data.startDate) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['endDate'],
@@ -103,17 +112,18 @@ export const subscriptionFormSchema = z
 
 export type SubscriptionFormData = z.infer<typeof subscriptionFormSchema>;
 
-const today = new Date();
-const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-export const defaultFormValues: Partial<SubscriptionFormData> = {
-    type: 'subscription',
-    category: 'Other',
-    frequency: 'monthly',
-    recurrenceType: 'recurring',
-    paymentMode: 'manual',
-    dayOfMonth: new Date().getDate(),
-    startDate: todayKey,
-    currency: 'TRY',
-    reminders: [1],
-};
+export function getDefaultFormValues(date = new Date()): Partial<SubscriptionFormData> {
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return {
+        type: 'subscription',
+        category: 'Other',
+        frequency: 'monthly',
+        recurrenceType: 'recurring',
+        paymentMode: 'manual',
+        amountMode: 'fixed',
+        dayOfMonth: date.getDate(),
+        startDate: dateKey,
+        currency: 'TRY',
+        reminders: [1],
+    };
+}

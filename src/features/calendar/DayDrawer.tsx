@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Dialog,
     DialogContent,
@@ -29,7 +31,8 @@ import { cn } from '@/lib/utils';
 import type { DayData, PaymentStatus, SubscriptionEvent } from '@/types';
 import { useMoveSubscription } from '@/features/subscriptions';
 import { categories } from '@/features/subscriptions/schema';
-import { useUpdateSnapshotItemStatus } from '@/features/snapshots';
+import { useUpdateSnapshotItemStatus, useUpdateSnapshotItemDetails } from '@/features/snapshots';
+import { toDateKey, toMonthKey } from '@/features/snapshots/logic';
 
 const KIND_ICONS: Record<string, React.ReactNode> = {
     payment: <Banknote className="h-4 w-4" />,
@@ -49,7 +52,7 @@ const CATEGORY_COLORS = new Map(categories.map((category) => [category.value, ca
 const CATEGORY_LABELS = new Map(categories.map((category) => [category.value, category.label]));
 
 function eventIdentity(event: SubscriptionEvent): string {
-    return `${event.subscriptionId}|${event.kind}|${event.date.toISOString()}`;
+    return event.id;
 }
 
 interface DayDrawerProps {
@@ -59,6 +62,9 @@ interface DayDrawerProps {
     onNewSubscription?: () => void;
     isReadOnly?: boolean;
     canUpdateStatus?: boolean;
+    canEditDetails?: boolean;
+    detailEvents?: SubscriptionEvent[];
+    onEventDateChange?: (date: Date) => void;
 }
 
 export function DayDrawer({
@@ -68,13 +74,18 @@ export function DayDrawer({
     onNewSubscription,
     isReadOnly = false,
     canUpdateStatus = false,
+    canEditDetails = false,
+    detailEvents,
+    onEventDateChange,
 }: DayDrawerProps) {
     const moveSubscription = useMoveSubscription();
     const updateStatus = useUpdateSnapshotItemStatus();
+    const updateDetails = useUpdateSnapshotItemDetails();
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
 
     const sortedEvents = [...(dayData?.events ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    const selectedEvent = sortedEvents.find((event) => eventIdentity(event) === selectedEventKey) ?? null;
+    const selectedEvent =
+        (detailEvents ?? sortedEvents).find((event) => eventIdentity(event) === selectedEventKey) ?? null;
 
     const handleDrawerClose = () => {
         setSelectedEventKey(null);
@@ -104,11 +115,12 @@ export function DayDrawer({
     };
 
     const handleStatus = async (event: SubscriptionEvent, status: PaymentStatus) => {
-        try {
-            await updateStatus.mutateAsync({ itemId: event.id, status });
-        } catch (error) {
-            console.error('Ödeme durumu güncellenemedi:', error);
-        }
+        await updateStatus.mutateAsync({ itemId: event.id, status });
+    };
+
+    const handleDetails = async (event: SubscriptionEvent, amount: number | null, date: string) => {
+        await updateDetails.mutateAsync({ itemId: event.id, amount, date });
+        onEventDateChange?.(new Date(`${date}T12:00:00`));
     };
 
     if (!isOpen || !dayData) return null;
@@ -143,12 +155,10 @@ export function DayDrawer({
                                 <Receipt className="h-8 w-8 text-muted-foreground" />
                             </div>
                             <p className="mt-4 text-sm text-muted-foreground">Bu gün için kayıt yok</p>
-                            {!isReadOnly && (
-                                <Button className="mt-4" size="sm" onClick={onNewSubscription}>
-                                    <Plus className="h-4 w-4" />
-                                    Yeni Ekle
-                                </Button>
-                            )}
+                            <Button className="mt-4" size="sm" onClick={onNewSubscription}>
+                                <Plus className="h-4 w-4" />
+                                Yeni Ekle
+                            </Button>
                         </div>
                     ) : (
                         <div className="space-y-3">
@@ -171,7 +181,7 @@ export function DayDrawer({
                 </div>
 
                 {/* Footer */}
-                {sortedEvents.length > 0 && !isReadOnly && (
+                {sortedEvents.length > 0 && (
                     <div className="border-t border-border p-4">
                         <Button className="w-full" onClick={onNewSubscription}>
                             <Plus className="h-4 w-4" />
@@ -182,11 +192,14 @@ export function DayDrawer({
             </div>
 
             <EventDetailDialog
+                key={selectedEvent?.id}
                 event={selectedEvent}
                 canUpdateStatus={canUpdateStatus}
-                isUpdating={updateStatus.isPending}
+                canEditDetails={canEditDetails}
+                isUpdating={updateStatus.isPending || updateDetails.isPending}
                 onClose={() => setSelectedEventKey(null)}
                 onStatusChange={handleStatus}
+                onDetailsSave={handleDetails}
             />
         </>
     );
@@ -240,22 +253,22 @@ function EventCard({ event, onMoveUp, onMoveDown, isUpdating, onOpenDetails }: E
                 </div>
             )}
 
-            <div className="flex items-start justify-between pl-2">
-                <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-3 pl-2">
+                <div className="flex min-w-0 items-center gap-3">
                     <div
-                        className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary"
                         style={{ color: CATEGORY_COLORS.get(event.category) ?? '#94A3B8' }}
                     >
                         {KIND_ICONS[event.kind]}
                     </div>
-                    <div>
-                        <h3 className="font-medium text-foreground">{event.title}</h3>
+                    <div className="min-w-0">
+                        <h3 className="break-words font-medium text-foreground">{event.title}</h3>
                         <p className="text-sm text-muted-foreground">
                             {KIND_LABELS[event.kind]} • {CATEGORY_LABELS.get(event.category) ?? event.category}
                         </p>
                     </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex shrink-0 flex-col items-end gap-2">
                     {event.amount !== undefined && (
                         <span className="font-semibold text-foreground">
                             {new Intl.NumberFormat('tr-TR', {
@@ -264,6 +277,14 @@ function EventCard({ event, onMoveUp, onMoveDown, isUpdating, onOpenDetails }: E
                             }).format(event.amount)}
                         </span>
                     )}
+                    {tracksPayment &&
+                        event.amountMode === 'variable' &&
+                        event.status !== 'skipped' &&
+                        event.amount === undefined && (
+                            <Badge variant="outline" className="text-amber-500 border-amber-500/30">
+                                Tutar bekleniyor
+                            </Badge>
+                        )}
                     {tracksPayment && <PaymentStatusBadge status={event.status ?? 'planned'} />}
                     <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={onOpenDetails}>
                         <Info className="h-3.5 w-3.5" />
@@ -300,18 +321,59 @@ function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
 interface EventDetailDialogProps {
     event: SubscriptionEvent | null;
     canUpdateStatus: boolean;
+    canEditDetails: boolean;
     isUpdating: boolean;
     onClose: () => void;
     onStatusChange: (event: SubscriptionEvent, status: PaymentStatus) => Promise<void>;
+    onDetailsSave: (event: SubscriptionEvent, amount: number | null, date: string) => Promise<void>;
 }
 
-function EventDetailDialog({ event, canUpdateStatus, isUpdating, onClose, onStatusChange }: EventDetailDialogProps) {
+function EventDetailDialog({
+    event,
+    canUpdateStatus,
+    canEditDetails,
+    isUpdating,
+    onClose,
+    onStatusChange,
+    onDetailsSave,
+}: EventDetailDialogProps) {
+    const [amount, setAmount] = useState(event?.amount?.toString() ?? '');
+    const [date, setDate] = useState(event ? toDateKey(event.date) : '');
+    const [message, setMessage] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
     if (!event) return null;
     const tracksPayment = event.kind === 'payment' || event.kind === 'due';
+    const month = toMonthKey(event.date);
+    const lastDate = toDateKey(new Date(event.date.getFullYear(), event.date.getMonth() + 1, 0));
+    const dirty = amount !== (event.amount?.toString() ?? '') || date !== toDateKey(event.date);
+    const missingAmount =
+        event.amountMode === 'variable' && (canEditDetails ? amount.trim() === '' : event.amount === undefined);
+    const saveDetails = async () => {
+        const parsed = amount.trim() === '' ? null : Number(amount);
+        if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) throw new Error('Geçerli bir tutar girin.');
+        await onDetailsSave(event, parsed, date);
+    };
+    const runAction = async (action: () => Promise<void>, success: string) => {
+        setBusy(true);
+        setMessage(null);
+        try {
+            await action();
+            setMessage(success);
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : String(error));
+        } finally {
+            setBusy(false);
+        }
+    };
+    const changeStatus = (status: PaymentStatus) =>
+        runAction(async () => {
+            if (status === 'done' && canEditDetails && dirty) await saveDetails();
+            await onStatusChange(event, status);
+        }, 'Ödeme durumu kaydedildi.');
 
     return (
         <Dialog open onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[480px]">
+            <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <div className="flex items-start justify-between gap-4 pr-8">
                         <div>
@@ -347,13 +409,72 @@ function EventDetailDialog({ event, canUpdateStatus, isUpdating, onClose, onStat
                     )}
                 </div>
 
+                {tracksPayment && canEditDetails && (
+                    <form
+                        className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            void runAction(saveDetails, 'Bu dönemin tutarı ve tarihi kaydedildi.');
+                        }}
+                    >
+                        <p className="text-sm font-medium">Bu dönemin ödemesi</p>
+                        <p className="text-xs text-muted-foreground">
+                            {event.amountMode === 'variable'
+                                ? 'Tutarı bu dönem için girin. Sonraki dönem yeniden tutar bekler.'
+                                : 'Buradaki değişiklik yalnızca bu döneme uygulanır. Sürekli fiyat değişikliği için Yönetim’den kaydı düzenleyin.'}
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label htmlFor="occurrence-amount">Tutar · {event.currency}</Label>
+                                <Input
+                                    id="occurrence-amount"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={amount}
+                                    placeholder="Tutar girin"
+                                    onChange={(e) => setAmount(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="occurrence-date">Ödeme tarihi</Label>
+                                <Input
+                                    id="occurrence-date"
+                                    type="date"
+                                    required
+                                    min={`${month}-01`}
+                                    max={lastDate}
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end">
+                            <Button type="submit" size="sm" disabled={isUpdating || busy || !dirty}>
+                                Bu dönemi kaydet
+                            </Button>
+                        </div>
+                    </form>
+                )}
+                {missingAmount && (
+                    <p className="text-xs text-amber-500">
+                        Ödendi olarak işaretlemek için önce dönemin tutarını girin. Fatura çıkmadıysa Atlandı
+                        seçebilirsiniz.
+                    </p>
+                )}
+                {message && (
+                    <p role="status" className="text-sm text-muted-foreground">
+                        {message}
+                    </p>
+                )}
+
                 {tracksPayment && canUpdateStatus && (
                     <DialogFooter className="grid grid-cols-3 gap-2 sm:grid-cols-3 sm:space-x-0">
                         <Button
                             type="button"
                             variant={event.status === 'planned' ? 'default' : 'outline'}
-                            onClick={() => void onStatusChange(event, 'planned')}
-                            disabled={isUpdating}
+                            onClick={() => void changeStatus('planned')}
+                            disabled={isUpdating || busy}
                         >
                             <Circle className="h-4 w-4" /> Ödenmedi
                         </Button>
@@ -361,16 +482,16 @@ function EventDetailDialog({ event, canUpdateStatus, isUpdating, onClose, onStat
                             type="button"
                             variant={event.status === 'done' ? 'default' : 'outline'}
                             className={cn(event.status === 'done' && 'bg-emerald-600 hover:bg-emerald-700')}
-                            onClick={() => void onStatusChange(event, 'done')}
-                            disabled={isUpdating}
+                            onClick={() => void changeStatus('done')}
+                            disabled={isUpdating || busy || missingAmount}
                         >
                             <CheckCircle2 className="h-4 w-4" /> Ödendi
                         </Button>
                         <Button
                             type="button"
                             variant={event.status === 'skipped' ? 'secondary' : 'outline'}
-                            onClick={() => void onStatusChange(event, 'skipped')}
-                            disabled={isUpdating}
+                            onClick={() => void changeStatus('skipped')}
+                            disabled={isUpdating || busy}
                         >
                             <Ban className="h-4 w-4" /> Atlandı
                         </Button>

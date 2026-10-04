@@ -1,9 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    subscriptionRepository,
-    type CreateSubscriptionInput,
-    type UpdateSubscriptionInput,
-} from './repository';
+import { subscriptionRepository, type CreateSubscriptionInput, type UpdateSubscriptionInput } from './repository';
 import type { Category } from '@/types';
 import { snapshotRepository, snapshotKeys } from '@/features/snapshots';
 
@@ -58,9 +54,9 @@ export function useCreateSubscription() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (input: CreateSubscriptionInput) =>
-            subscriptionRepository.create(input),
-        onSuccess: async () => {
+        mutationFn: (input: CreateSubscriptionInput) => subscriptionRepository.create(input),
+        onSuccess: async (subscription) => {
+            await snapshotRepository.syncOneTimeRecord(subscription);
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
             await refreshSnapshots(queryClient);
         },
@@ -71,8 +67,12 @@ export function useUpdateSubscription() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, input }: { id: string; input: UpdateSubscriptionInput }) =>
-            subscriptionRepository.update(id, input),
+        mutationFn: async ({ id, input }: { id: string; input: UpdateSubscriptionInput }) => {
+            const previous = await subscriptionRepository.getById(id);
+            const subscription = await subscriptionRepository.update(id, input);
+            await snapshotRepository.syncOneTimeRecord(subscription, previous);
+            return subscription;
+        },
         onSuccess: async (_, { id }) => {
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.detail(id) });
             queryClient.invalidateQueries({ queryKey: subscriptionKeys.lists() });

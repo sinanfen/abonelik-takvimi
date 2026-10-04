@@ -6,7 +6,7 @@ import { snapshotRepository } from '@/features/snapshots';
 import type { MonthlySnapshot, Subscription } from '@/types';
 
 interface BackupPayload {
-    version: 2 | 3;
+    version: 2 | 3 | 4;
     exportedAt: string;
     subscriptions: Subscription[];
     snapshots: MonthlySnapshot[];
@@ -16,9 +16,9 @@ export const backupService = {
     async exportData(): Promise<boolean> {
         try {
             const subscriptions = await subscriptionRepository.getAll();
-            const snapshots = await snapshotRepository.getAll();
+            const snapshots = await snapshotRepository.getAll(true);
             const payload: BackupPayload = {
-                version: 3,
+                version: 4,
                 exportedAt: new Date().toISOString(),
                 subscriptions,
                 snapshots,
@@ -77,6 +77,7 @@ export const backupService = {
                         frequency: sub.recurrence?.frequency || 'monthly',
                         recurrenceType: sub.recurrenceType ?? 'recurring',
                         paymentMode: sub.paymentMode ?? 'manual',
+                        amountMode: sub.amountMode ?? 'fixed',
                         dayOfMonth: sub.recurrence?.dayOfMonth,
                         amount: sub.amount,
                         currency: sub.currency,
@@ -112,8 +113,10 @@ export const backupService = {
                         updatedAt: new Date(snapshot.updatedAt),
                         items: snapshot.items.map((item) => ({
                             ...item,
-                            subscriptionId: idMap.get(item.subscriptionId) ?? item.subscriptionId,
+                            subscriptionId: idMap.get(item.subscriptionId) ?? '',
                             date: new Date(item.date),
+                            scheduledDate: new Date(item.scheduledDate ?? item.date),
+                            amountMode: item.amountMode ?? 'fixed',
                         })),
                     }));
                     await snapshotRepository.replaceAll(hydratedSnapshots);

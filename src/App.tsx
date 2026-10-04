@@ -6,7 +6,12 @@ import { CalendarView } from '@/features/calendar/CalendarView';
 import { AdminPanel } from '@/features/admin';
 import { HistoryView } from '@/features/history/HistoryView';
 import type { Subscription } from '@/types';
-import { SubscriptionFormModal, useCreateSubscription, useUpdateSubscription, type SubscriptionFormData } from '@/features/subscriptions';
+import {
+  SubscriptionFormModal,
+  useCreateSubscription,
+  useUpdateSubscription,
+  type SubscriptionFormData,
+} from '@/features/subscriptions';
 import { SettingsDialog } from '@/features/settings/SettingsDialog';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useNotificationService } from '@/features/notifications/useNotificationService';
@@ -34,6 +39,7 @@ function AppContent() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
+  const [newRecordDate, setNewRecordDate] = useState<Date | undefined>();
 
   const { theme } = useSettingsStore();
 
@@ -55,8 +61,9 @@ function AppContent() {
   const createMutation = useCreateSubscription();
   const updateMutation = useUpdateSubscription();
 
-  const handleNewSubscription = () => {
+  const handleNewSubscription = (date?: Date) => {
     setEditingSubscription(null);
+    setNewRecordDate(date);
     setIsFormModalOpen(true);
   };
 
@@ -81,15 +88,17 @@ function AppContent() {
             frequency: data.frequency,
             recurrenceType: data.recurrenceType,
             paymentMode: data.paymentMode,
+            amountMode: data.recurrenceType === 'one_time' ? 'fixed' : data.amountMode,
             dayOfMonth: data.dayOfMonth,
-            amount: data.amount,
+            amount:
+              data.recurrenceType === 'recurring' && data.amountMode === 'variable' ? null : (data.amount ?? null),
             currency: data.currency,
             notes: data.notes,
             statementDay: data.statementDay,
             dueDay: data.dueDay,
             reminders: data.reminders,
             startDate: parseFormDate(data.startDate),
-            endDate: parseFormDate(data.endDate),
+            endDate: data.recurrenceType === 'one_time' ? null : parseFormDate(data.endDate),
           },
         });
       } else {
@@ -100,15 +109,16 @@ function AppContent() {
           frequency: data.frequency,
           recurrenceType: data.recurrenceType,
           paymentMode: data.paymentMode,
+          amountMode: data.recurrenceType === 'one_time' ? 'fixed' : data.amountMode,
           dayOfMonth: data.dayOfMonth,
-          amount: data.amount,
+          amount: data.recurrenceType === 'recurring' && data.amountMode === 'variable' ? null : (data.amount ?? null),
           currency: data.currency,
           notes: data.notes,
           statementDay: data.statementDay,
           dueDay: data.dueDay,
           reminders: data.reminders,
           startDate: parseFormDate(data.startDate),
-          endDate: parseFormDate(data.endDate),
+          endDate: data.recurrenceType === 'one_time' ? null : parseFormDate(data.endDate),
         });
       }
       setIsFormModalOpen(false);
@@ -150,7 +160,11 @@ function AppContent() {
         </TabsContent>
 
         <TabsContent value="admin" className="flex-1 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
-          <AdminPanel onNewSubscription={handleNewSubscription} onEditSubscription={handleEditSubscription} onOpenSettings={handleOpenSettings} />
+          <AdminPanel
+            onNewSubscription={() => handleNewSubscription()}
+            onEditSubscription={handleEditSubscription}
+            onOpenSettings={handleOpenSettings}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="flex-1 mt-0 data-[state=active]:flex data-[state=active]:flex-col">
@@ -163,6 +177,7 @@ function AppContent() {
         isOpen={isFormModalOpen}
         onClose={handleCloseModal}
         onSubmit={handleFormSubmit}
+        initialDate={newRecordDate}
         initialData={
           editingSubscription
             ? {
@@ -171,7 +186,11 @@ function AppContent() {
                 category: editingSubscription.category,
                 recurrenceType: editingSubscription.recurrenceType,
                 paymentMode: editingSubscription.paymentMode,
-                frequency: editingSubscription.recurrence.frequency === 'custom' ? 'monthly' : editingSubscription.recurrence.frequency,
+                amountMode: editingSubscription.amountMode,
+                frequency:
+                  editingSubscription.recurrence.frequency === 'custom'
+                    ? 'monthly'
+                    : editingSubscription.recurrence.frequency,
                 dayOfMonth: editingSubscription.recurrence.dayOfMonth,
                 amount: editingSubscription.amount,
                 currency: editingSubscription.currency,

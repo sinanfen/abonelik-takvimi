@@ -12,7 +12,7 @@ import { FilterSidebar, defaultFilters, type FilterState } from './FilterSidebar
 import { toMonthKey, useMonthlySnapshot } from '@/features/snapshots';
 
 interface CalendarViewProps {
-    onNewSubscription?: () => void;
+    onNewSubscription?: (date?: Date) => void;
     onOpenSettings?: () => void;
 }
 
@@ -144,6 +144,13 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
         setCurrentMonth(startOfToday());
     };
 
+    const handleSelectDate = (date: Date) => {
+        if (toMonthKey(date) !== monthKey) {
+            setCurrentMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+        }
+        setSelectedDate(date);
+    };
+
     const selectedDayData = selectedDate ? daysData.find((d) => isSameDay(d.date, selectedDate)) : null;
 
     const weekDays = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -196,7 +203,17 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <Button onClick={onNewSubscription}>
+                        <Button
+                            onClick={() =>
+                                onNewSubscription?.(
+                                    new Date(
+                                        currentMonth.getFullYear(),
+                                        currentMonth.getMonth(),
+                                        toMonthKey(new Date()) === toMonthKey(currentMonth) ? new Date().getDate() : 1,
+                                    ),
+                                )
+                            }
+                        >
                             <Plus className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">Yeni Kayıt</span>
                         </Button>
@@ -231,33 +248,27 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                         <div className="flex h-full items-center justify-center text-destructive">
                             Snapshot yüklenemedi: {String(error)}
                         </div>
-                    ) : snapshot === null ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                            <p className="font-medium">Bu ay için kayıtlı snapshot bulunmuyor.</p>
-                            <p className="max-w-md text-sm text-muted-foreground">
-                                Snapshot özelliği etkinleştirilmeden önceki ayların içeriği geriye dönük tahmin edilmez.
-                            </p>
-                        </div>
-                    ) : allEvents.length === 0 ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-4">
-                            <p className="text-muted-foreground">Bu ay için ödeme veya harcama kaydı yok.</p>
-                            <Button onClick={onNewSubscription}>
-                                <Plus className="h-4 w-4" />
-                                İlk Kaydı Ekle
-                            </Button>
-                        </div>
                     ) : (
-                        <div className="grid grid-cols-7 gap-2 flex-1 auto-rows-fr">
-                            {daysData.map((day) => (
-                                <DayCell
-                                    key={day.date.toISOString()}
-                                    data={day}
-                                    isSelected={selectedDate ? isSameDay(day.date, selectedDate) : false}
-                                    onClick={() => setSelectedDate(day.date)}
-                                    isCurrentMonth={day.date.getMonth() === currentMonth.getMonth()}
-                                />
-                            ))}
-                        </div>
+                        <>
+                            {allEvents.length === 0 && (
+                                <p className="mb-3 text-sm text-muted-foreground">
+                                    {snapshot === null
+                                        ? 'Bu ay için kayıtlı snapshot yok; geçmiş ödemeler tahmin edilmez. Bir güne tıklayarak tek seferlik harcama ekleyebilirsiniz.'
+                                        : 'Bu ay için kayıt yok. Bir güne tıklayarak harcama ekleyebilirsiniz.'}
+                                </p>
+                            )}
+                            <div className="grid grid-cols-7 gap-2 flex-1 auto-rows-fr">
+                                {daysData.map((day) => (
+                                    <DayCell
+                                        key={day.date.toISOString()}
+                                        data={day}
+                                        isSelected={selectedDate ? isSameDay(day.date, selectedDate) : false}
+                                        onClick={() => handleSelectDate(day.date)}
+                                        isCurrentMonth={day.date.getMonth() === currentMonth.getMonth()}
+                                    />
+                                ))}
+                            </div>
+                        </>
                     )}
                 </main>
             </div>
@@ -267,9 +278,12 @@ export function CalendarView({ onNewSubscription, onOpenSettings }: CalendarView
                 isOpen={selectedDate !== null}
                 onClose={() => setSelectedDate(null)}
                 dayData={selectedDayData ?? null}
-                onNewSubscription={onNewSubscription}
+                onNewSubscription={() => onNewSubscription?.(selectedDate ?? currentMonth)}
+                onEventDateChange={setSelectedDate}
                 isReadOnly={monthKey < currentMonthKey}
                 canUpdateStatus={monthKey <= currentMonthKey}
+                canEditDetails
+                detailEvents={allEvents}
             />
         </div>
     );

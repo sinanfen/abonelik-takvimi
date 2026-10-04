@@ -139,7 +139,9 @@ async fn send_payment_reminder(
         .amount
         .filter(|amount| amount.is_finite() && *amount >= 0.0)
         .map(|amount| format!("Tutar: {amount:.2} {currency}\n"))
-        .unwrap_or_default();
+        .unwrap_or_else(|| {
+            "Tutar henüz girilmedi. Uygulamada bu dönemin tutarını girin.\n".to_string()
+        });
     let payment_note = if reminder.automatic_payment {
         "Otomatik ödeme talimatı işaretli. Hesap bakiyesini ve tahsilatı kontrol edin."
     } else {
@@ -254,6 +256,12 @@ pub fn run() {
                 CREATE INDEX IF NOT EXISTS idx_reminder_dispatches_lookup
                     ON reminder_dispatches(subscription_id, occurrence_date, reminder_days, channel);
             "#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "Add variable amounts and occurrence overrides",
+            sql: include_str!("../migrations/005_variable_amounts.sql"),
             kind: MigrationKind::Up,
         },
     ];

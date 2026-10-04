@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { categories } from '@/features/subscriptions/schema';
 import { toMonthKey, useSnapshotHistory } from '@/features/snapshots';
 import type { Category, MonthlySnapshot } from '@/types';
+import { paymentTotals } from '@/features/snapshots/logic';
 
 const categoryMeta = new Map<Category, { label: string; color: string }>(
     categories.map((category) => [category.value, category]),
@@ -18,12 +19,7 @@ function monthLabel(month: string): string {
 }
 
 function groupTotals(snapshot: MonthlySnapshot): [string, number][] {
-    const totals = new Map<string, number>();
-    for (const item of snapshot.items) {
-        if (item.amount === undefined) continue;
-        totals.set(item.currency, (totals.get(item.currency) ?? 0) + item.amount);
-    }
-    return [...totals.entries()];
+    return [...paymentTotals(snapshot.items).totals.entries()];
 }
 
 function formatAmount(amount: number, currency: string): string {
@@ -163,6 +159,12 @@ export function HistoryView() {
                         </div>
 
                         <Card>
+                            {paymentTotals(selected.items).missingCount > 0 && (
+                                <p className="px-6 pt-4 text-sm text-amber-500">
+                                    {paymentTotals(selected.items).missingCount} ödemenin tutarı henüz girilmedi.
+                                    Toplamlar yalnızca tutarı bilinen ve atlanmamış ödemeleri içerir.
+                                </p>
+                            )}
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2 text-base">
                                     <ReceiptText className="h-5 w-5" />
@@ -198,6 +200,14 @@ export function HistoryView() {
                                                             {formatAmount(item.amount, item.currency)}
                                                         </span>
                                                     )}
+                                                    {item.amount === undefined &&
+                                                        item.amountMode === 'variable' &&
+                                                        (item.kind === 'payment' || item.kind === 'due') &&
+                                                        item.status !== 'skipped' && (
+                                                            <Badge variant="outline" className="text-amber-500">
+                                                                Tutar bekleniyor
+                                                            </Badge>
+                                                        )}
                                                     {(item.kind === 'payment' || item.kind === 'due') && (
                                                         <Badge
                                                             variant={

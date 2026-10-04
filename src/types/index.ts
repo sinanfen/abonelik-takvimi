@@ -18,6 +18,7 @@ export type Category =
     | 'Other';
 
 export type RecurrenceType = 'recurring' | 'one_time';
+export type AmountMode = 'fixed' | 'variable';
 export type PaymentMode = 'manual' | 'automatic';
 export type PaymentStatus = 'planned' | 'done' | 'skipped';
 
@@ -38,6 +39,7 @@ export interface Subscription {
     recurrence: RecurrenceRule;
     recurrenceType: RecurrenceType;
     paymentMode: PaymentMode;
+    amountMode: AmountMode;
     amount?: number;
     currency: string;
     paymentMethod?: string;
@@ -63,6 +65,10 @@ export interface SubscriptionEvent {
     amount?: number;
     currency: string;
     subscriptionType: SubscriptionType;
+    amountMode?: AmountMode;
+    scheduledDate?: Date;
+    amountOverridden?: boolean;
+    dateOverridden?: boolean;
     notes?: string;
     status?: PaymentStatus;
     sortOrder?: number;

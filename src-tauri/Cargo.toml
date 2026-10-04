@@ -1,6 +1,6 @@
 [package]
 name = "abonelik-takvimi"
-version = "0.4.0"
+version = "0.5.0"
 description = "Abonelik ve ödeme tarihlerinizi 30 günlük takvimde takip edin"
 authors = ["Sinan"]
 license = "MIT"

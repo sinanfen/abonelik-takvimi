@@ -1,15 +1,11 @@
 import { useMemo } from 'react';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { Subscription, Category } from '@/types';
 import { PieChart as PieChartIcon, Wallet, CreditCard, BarChart3 } from 'lucide-react';
 import { categories } from '@/features/subscriptions/schema';
+import { toMonthKey, useMonthlySnapshot } from '@/features/snapshots';
+import { paymentTotals } from '@/features/snapshots/logic';
 
 interface SummaryDialogProps {
     isOpen: boolean;
@@ -20,28 +16,30 @@ interface SummaryDialogProps {
 const CATEGORY_META = new Map(categories.map((category) => [category.value, category]));
 
 export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogProps) {
+    const { data: snapshot, isLoading, error } = useMonthlySnapshot(toMonthKey(new Date()), isOpen);
+    const includedIds = new Set(subscriptions.map((sub) => sub.id));
+    const missingCount = paymentTotals(
+        snapshot?.items.filter((item) => includedIds.has(item.subscriptionId)) ?? [],
+    ).missingCount;
     const stats = useMemo(() => {
-        const today = new Date();
-        const activeSubs = subscriptions.filter(sub =>
-            sub.isActive && (!sub.endDate || sub.endDate >= today),
-        );
+        const ids = new Set(subscriptions.map((sub) => sub.id));
         const byCurrency: Record<string, { total: number; byCategory: Record<string, number> }> = {};
 
-        activeSubs.forEach(sub => {
-            if (!sub.amount || sub.recurrenceType === 'one_time') return;
+        (snapshot?.items ?? []).forEach((sub) => {
+            if (
+                !ids.has(sub.subscriptionId) ||
+                !sub.amount ||
+                sub.status === 'skipped' ||
+                (sub.kind !== 'payment' && sub.kind !== 'due')
+            )
+                return;
 
             const currency = sub.currency || 'TRY';
             if (!byCurrency[currency]) {
                 byCurrency[currency] = { total: 0, byCategory: {} };
             }
 
-            // Calculate monthly cost
-            let monthlyAmount = sub.amount;
-            if (sub.recurrence.frequency === 'weekly') {
-                monthlyAmount = sub.amount * 4.33;
-            } else if (sub.recurrence.frequency === 'yearly') {
-                monthlyAmount = sub.amount / 12;
-            }
+            const monthlyAmount = sub.amount;
 
             // Add to totals
             byCurrency[currency].total += monthlyAmount;
@@ -52,7 +50,7 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
         });
 
         return byCurrency;
-    }, [subscriptions]);
+    }, [subscriptions, snapshot]);
 
     const currencies = Object.keys(stats);
 
@@ -83,7 +81,7 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                         category,
                         path: `M 1 0 A 1 1 0 1 1 -1 0 A 1 1 0 1 1 1 0`,
                         color: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8',
-                        percent
+                        percent,
                     };
                 }
 
@@ -94,7 +92,7 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                     category,
                     path: pathData,
                     color: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8',
-                    percent
+                    percent,
                 };
             });
     };
@@ -108,22 +106,32 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                         Finansal Özet ve Rapor
                     </DialogTitle>
                     <DialogDescription>
-                        Aktif aboneliklerinizin aylık ortalama maliyet analizi ve dağılımı.
+                        Bu ayın sabit ödemeleri, girilmiş fatura tutarları ve tek seferlik harcamaları. Atlananlar
+                        toplam dışında tutulur.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto px-1">
+                    {missingCount > 0 && (
+                        <p className="py-3 text-sm text-amber-500">
+                            {missingCount} ödemenin tutarı bekleniyor. Toplama henüz dahil edilmedi.
+                        </p>
+                    )}
+                    {error && <p className="text-destructive">Aylık özet yüklenemedi: {String(error)}</p>}
                     {currencies.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                             <Wallet className="h-16 w-16 opacity-30 mb-4" />
-                            <p className="text-lg font-medium">Analiz edilecek aktif veri bulunamadı.</p>
-                            <p className="text-sm">Lütfen aktif abonelik ekleyin.</p>
+                            <p className="text-lg font-medium">
+                                {isLoading ? 'Aylık özet yükleniyor…' : 'Bu ay için tutarı girilmiş ödeme bulunamadı.'}
+                            </p>
                         </div>
                     ) : (
                         <div className="space-y-12 py-4">
-                            {currencies.map(currency => {
+                            {currencies.map((currency) => {
                                 const currencyData = stats[currency];
-                                const sortedCategories = Object.entries(currencyData.byCategory).sort(([, a], [, b]) => b - a);
+                                const sortedCategories = Object.entries(currencyData.byCategory).sort(
+                                    ([, a], [, b]) => b - a,
+                                );
                                 const maxAmount = sortedCategories[0]?.[1] || 1;
                                 const pieSlices = getPieSlices(currencyData.byCategory, currencyData.total);
 
@@ -133,11 +141,16 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                         <div className="flex items-center justify-between border-b pb-4">
                                             <div>
                                                 <h3 className="text-2xl font-bold flex items-center gap-2">
-                                                    {currency} <span className="text-muted-foreground text-lg font-normal">Raporu</span>
+                                                    {currency}{' '}
+                                                    <span className="text-muted-foreground text-lg font-normal">
+                                                        Raporu
+                                                    </span>
                                                 </h3>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-sm text-muted-foreground">Toplam Aylık Ortalama</div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    Bu Ay · Bilinen Toplam
+                                                </div>
                                                 <div className="text-3xl font-bold text-primary">
                                                     {formatAmount(currencyData.total, currency)}
                                                 </div>
@@ -159,18 +172,27 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                                                 <span className="font-medium flex items-center gap-2">
                                                                     <div
                                                                         className="w-3 h-3 rounded-full"
-                                                                        style={{ backgroundColor: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8' }}
+                                                                        style={{
+                                                                            backgroundColor:
+                                                                                CATEGORY_META.get(category as Category)
+                                                                                    ?.color ?? '#94A3B8',
+                                                                        }}
                                                                     />
-                                                                    {CATEGORY_META.get(category as Category)?.label ?? category}
+                                                                    {CATEGORY_META.get(category as Category)?.label ??
+                                                                        category}
                                                                 </span>
-                                                                <span className="font-medium">{formatAmount(amount, currency)}</span>
+                                                                <span className="font-medium">
+                                                                    {formatAmount(amount, currency)}
+                                                                </span>
                                                             </div>
                                                             <div className="h-3 w-full bg-secondary/30 rounded-full overflow-hidden">
                                                                 <div
                                                                     className="h-full rounded-full transition-all duration-1000 ease-out"
                                                                     style={{
                                                                         width: `${(amount / maxAmount) * 100}%`,
-                                                                        backgroundColor: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8'
+                                                                        backgroundColor:
+                                                                            CATEGORY_META.get(category as Category)
+                                                                                ?.color ?? '#94A3B8',
                                                                     }}
                                                                 />
                                                             </div>
@@ -190,7 +212,10 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                                 </div>
 
                                                 <div className="relative w-64 h-64 mb-6">
-                                                    <svg viewBox="-1.1 -1.1 2.2 2.2" className="w-full h-full -rotate-90 text-center">
+                                                    <svg
+                                                        viewBox="-1.1 -1.1 2.2 2.2"
+                                                        className="w-full h-full -rotate-90 text-center"
+                                                    >
                                                         {pieSlices.map((slice) => (
                                                             <path
                                                                 key={slice.category}
@@ -207,8 +232,12 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
 
                                                     {/* Center Text */}
                                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col">
-                                                        <span className="text-xs text-muted-foreground font-medium">Toplam</span>
-                                                        <span className="text-sm font-bold">{formatAmount(currencyData.total, currency)}</span>
+                                                        <span className="text-xs text-muted-foreground font-medium">
+                                                            Toplam
+                                                        </span>
+                                                        <span className="text-sm font-bold">
+                                                            {formatAmount(currencyData.total, currency)}
+                                                        </span>
                                                     </div>
                                                 </div>
 
@@ -221,10 +250,15 @@ export function SummaryDialog({ isOpen, onClose, subscriptions }: SummaryDialogP
                                                         >
                                                             <div
                                                                 className="w-2 h-2 rounded-full"
-                                                                style={{ backgroundColor: CATEGORY_META.get(category as Category)?.color ?? '#94A3B8' }}
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        CATEGORY_META.get(category as Category)
+                                                                            ?.color ?? '#94A3B8',
+                                                                }}
                                                             />
                                                             <span className="text-xs text-muted-foreground">
-                                                                {CATEGORY_META.get(category as Category)?.label ?? category}
+                                                                {CATEGORY_META.get(category as Category)?.label ??
+                                                                    category}
                                                             </span>
                                                         </Badge>
                                                     ))}

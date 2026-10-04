@@ -230,6 +230,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                 frequency: sub.recurrence.frequency,
                 recurrenceType: sub.recurrenceType,
                 paymentMode: sub.paymentMode,
+                amountMode: sub.amountMode,
                 dayOfMonth: sub.recurrence.dayOfMonth,
                 amount: sub.amount,
                 currency: sub.currency,
@@ -397,7 +398,7 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                         <TableBody>
                             {processedSubscriptions.length === 0 ? (
                                 <TableRow>
-                                <TableCell colSpan={11} className="h-24 text-center">
+                                    <TableCell colSpan={11} className="h-24 text-center">
                                         <p className="text-muted-foreground">
                                             {subscriptions.length === 0
                                                 ? 'Henüz kayıt eklenmemiş. "Yeni Kayıt" butonuna tıklayarak başlayın.'
@@ -479,7 +480,13 @@ export function AdminPanel({ onNewSubscription, onEditSubscription, onOpenSettin
                                                 {sub.paymentMode === 'automatic' ? 'Otomatik talimat' : 'Manuel'}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell>{formatAmount(sub.amount, sub.currency)}</TableCell>
+                                        <TableCell>
+                                            {sub.recurrenceType === 'recurring' && sub.amountMode === 'variable' ? (
+                                                <Badge variant="outline">Her dönem girilir</Badge>
+                                            ) : (
+                                                formatAmount(sub.amount, sub.currency)
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             <Badge variant={sub.isActive ? 'default' : 'secondary'}>
                                                 {sub.isActive ? 'Aktif' : 'Pasif'}
